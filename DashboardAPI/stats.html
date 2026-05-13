@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>AIS Live — Statistiques</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold: #c9a227; --gold-bg: #100e06; --gold-dim: #6e5512;
+      --navy: #030c1c; --surface: #060f24; --border: #152d4f;
+      --text: #ccd9e8; --text-dim: #4e6a88;
+    }
+
+    body {
+      background: var(--navy); color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(to bottom, #071220, var(--navy));
+      border-top: 3px solid transparent;
+      border-image: linear-gradient(to right, #002395 33.3%, #ffffff 33.3% 66.6%, #ed2939 66.6%) 1 0 0 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px; height: 60px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+      box-shadow: 0 2px 24px rgba(0,15,60,.6);
+    }
+    .logo {
+      font-family: 'Exo 2', sans-serif; font-size: 14px; font-weight: 700;
+      letter-spacing: .06em; color: var(--text); display: flex; align-items: center; gap: 10px;
+    }
+    .logo-anchor { color: var(--gold); font-size: 20px; }
+    .logo-title  { color: var(--gold); font-weight: 900; letter-spacing: .08em; }
+    .logo-sep    { color: var(--border); }
+    .logo-sub    { font-weight: 400; color: var(--text-dim); font-size: 11px; letter-spacing: .04em; }
+
+    .nav { display: flex; gap: 5px; margin-left: 18px; }
+    .nav a {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 11px; font-weight: 600; padding: 4px 13px; border-radius: 20px;
+      text-decoration: none; border: 1px solid var(--border); color: var(--text-dim);
+      transition: all .2s; letter-spacing: .03em;
+    }
+    .nav a:hover { color: var(--text); border-color: #1e4070; background: #0b1a30; }
+    .nav a.active {
+      background: linear-gradient(to bottom, #181405, var(--gold-bg));
+      color: var(--gold); border-color: var(--gold-dim);
+      box-shadow: 0 0 10px rgba(201,162,39,.18);
+    }
+
+    #status-bar {
+      font-size: 11px; color: #6e7681; padding: 3px 10px;
+      background: #091525; border-radius: 20px; margin-left: 14px;
+    }
+
+    .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+    /* ── KPI cards ── */
+    .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
+    .kpi {
+      background: linear-gradient(135deg, #060f24, #030c1c);
+      border: 1px solid #152d4f; border-radius: 10px;
+      padding: 16px; text-align: center;
+      box-shadow: 0 2px 12px rgba(0,10,50,.5);
+      position: relative; overflow: hidden;
+    }
+    .kpi::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--kpi-color, #c9a227);
+    }
+    .kpi-val {
+      font-size: 28px; font-weight: 700; line-height: 1;
+      font-family: 'Exo 2', sans-serif;
+    }
+    .kpi-lbl { font-size: 10px; color: #4e6a88; letter-spacing: .1em; margin-top: 6px; text-transform: uppercase; }
+    .kpi.red    { --kpi-color: #ef4444; } .kpi.red    .kpi-val { color: #ef4444; }
+    .kpi.orange { --kpi-color: #f59e0b; } .kpi.orange .kpi-val { color: #f59e0b; }
+    .kpi.green  { --kpi-color: #22c55e; } .kpi.green  .kpi-val { color: #22c55e; }
+    .kpi.dark   { --kpi-color: #6b7280; } .kpi.dark   .kpi-val { color: #6b7280; }
+    .kpi.blue   { --kpi-color: #c9a227; } .kpi.blue   .kpi-val { color: #c9a227; }
+    .kpi.grey   { --kpi-color: #4e6a88; } .kpi.grey   .kpi-val { color: #4e6a88; }
+
+    /* ── Charts grid ── */
+    .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .charts-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .panel {
+      background: linear-gradient(135deg, #060f24, #030c1c);
+      border: 1px solid #152d4f; border-radius: 10px; padding: 18px;
+      box-shadow: 0 2px 12px rgba(0,10,50,.5);
+    }
+    .panel-title {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 11px; font-weight: 700; color: #c9a227; letter-spacing: .12em;
+      margin-bottom: 16px; text-transform: uppercase;
+      padding-bottom: 10px; border-bottom: 1px solid #152d4f;
+    }
+    .chart-wrap { position: relative; height: 200px; }
+
+    /* ── Table zones ── */
+    .zone-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .zone-table th {
+      text-align: left; font-size: 10px; color: #6e7681;
+      letter-spacing: .08em; padding: 4px 8px; border-bottom: 1px solid #152d4f;
+    }
+    .zone-table td { padding: 6px 8px; border-bottom: 1px solid #091525; }
+    .zone-table tr:last-child td { border-bottom: none; }
+    .zone-bar {
+      display: inline-block; height: 6px; background: #f85149; border-radius: 3px;
+      margin-left: 8px; vertical-align: middle;
+    }
+
+    /* ── Type badges ── */
+    .type-list { display: flex; flex-direction: column; gap: 8px; }
+    .type-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+    .type-label { flex: 1; color: #c9d1d9; }
+    .type-count { font-weight: 700; color: #e6edf3; min-width: 30px; text-align: right; }
+    .type-bar-wrap { width: 80px; height: 6px; background: #091525; border-radius: 3px; }
+    .type-bar { height: 100%; border-radius: 3px; background: #58a6ff; }
+
+    #refresh-info { font-size: 11px; color: #6e7681; text-align: right; margin-top: 12px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .charts { grid-template-columns: 1fr; }
+      .charts-row2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center">
+    <div class="logo"><span class="logo-anchor">⚓</span><span class="logo-title">MARINE NATIONALE</span><span class="logo-sep">·</span><span class="logo-sub">MICA CENTER — STATISTIQUES</span></div>
+    <span id="status-bar">Chargement...</span>
+    <nav class="nav">
+      <a href="dashboard.html">Tous</a>
+      <a href="dashboard_clean.html">✅ Clean</a>
+      <a href="dashboard_suspects.html">⚠ Suspects</a>
+      <a href="dashboard_alertes.html">🚨 Alertes</a>
+      <a href="dashboard_sts.html">📦 STS</a>
+      <a href="stats.html" class="active">📊 Stats</a>
+      <a href="dashboard_settings.html">⚙ Paramètres</a>
+    </nav>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi blue">
+      <div class="kpi-val" id="k-total">—</div>
+      <div class="kpi-lbl">NAVIRES VUES</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-val" id="k-active">—</div>
+      <div class="kpi-lbl">ACTIFS (1H)</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-val" id="k-red">—</div>
+      <div class="kpi-lbl">ALERTES ROUGES</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-val" id="k-orange">—</div>
+      <div class="kpi-lbl">SUSPECTS</div>
+    </div>
+    <div class="kpi dark">
+      <div class="kpi-val" id="k-dark">—</div>
+      <div class="kpi-lbl">DARK SHIPPING</div>
+    </div>
+    <div class="kpi grey">
+      <div class="kpi-val" id="k-uptime">—</div>
+      <div class="kpi-lbl">UPTIME (MIN)</div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="charts">
+    <div class="panel">
+      <div class="panel-title">Alertes par heure (6 dernières heures)</div>
+      <div class="chart-wrap"><canvas id="chart-hourly"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Répartition des niveaux</div>
+      <div class="chart-wrap"><canvas id="chart-levels"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Top 5 navires -->
+  <div class="panel" style="margin-bottom:16px">
+    <div class="panel-title">🏴‍☠️ Top 5 navires les plus suspects (toutes sessions)</div>
+    <table class="zone-table" id="top-vessels-table">
+      <thead><tr><th>#</th><th>Navire</th><th>MMSI</th><th>Pays</th><th>Alertes</th><th>Score</th></tr></thead>
+      <tbody id="top-vessels-body">
+        <tr><td colspan="6" style="color:#6e7681">En attente de données...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="charts-row2">
+    <div class="panel">
+      <div class="panel-title">Top types d'alertes déclenchées</div>
+      <div class="type-list" id="type-list">
+        <div style="color:#6e7681;font-size:12px">En attente de données...</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Zones à risque actives</div>
+      <table class="zone-table">
+        <thead><tr><th>Zone</th><th>Passages</th></tr></thead>
+        <tbody id="zone-body">
+          <tr><td colspan="2" style="color:#6e7681">En attente de données...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="refresh-info">Actualisation automatique toutes les 15 s</div>
+</div>
+
+<script>
+const CHART_DEFAULTS = {
+  plugins: { legend: { labels: { color: '#8b949e', font: { family: 'monospace', size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#6e7681', font: { size: 10 } }, grid: { color: '#091525' } },
+    y: { ticks: { color: '#6e7681', font: { size: 10 } }, grid: { color: '#091525' }, beginAtZero: true }
+  }
+};
+
+// ── Hourly line chart ──
+const ctxH = document.getElementById('chart-hourly').getContext('2d');
+const chartHourly = new Chart(ctxH, {
+  type: 'bar',
+  data: {
+    labels: ['H-5', 'H-4', 'H-3', 'H-2', 'H-1', 'En cours'],
+    datasets: [{
+      label: 'Événements',
+      data: [0,0,0,0,0,0],
+      backgroundColor: '#f8514966',
+      borderColor: '#f85149',
+      borderWidth: 1,
+      borderRadius: 3,
+    }]
+  },
+  options: { ...CHART_DEFAULTS, responsive: true, maintainAspectRatio: false }
+});
+
+// ── Donut levels ──
+const ctxL = document.getElementById('chart-levels').getContext('2d');
+const chartLevels = new Chart(ctxL, {
+  type: 'doughnut',
+  data: {
+    labels: ['🚨 Alertes', '⚠ Suspects', '✅ Clean', '🌑 Dark'],
+    datasets: [{
+      data: [0,0,0,0],
+      backgroundColor: ['#f85149cc', '#d29922cc', '#3fb950cc', '#555555cc'],
+      borderColor:     ['#f85149',   '#d29922',   '#3fb950',   '#777777'],
+      borderWidth: 1,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#8b949e', font: { size: 11 }, padding: 12 } }
+    }
+  }
+});
+
+// ── Refresh ──
+const TYPE_LABELS = {
+  'SANCTION_SANCTION':    'Sanction internationale',
+  'SANCTION_SHADOW_FLEET':'Flotte fantôme',
+  'SANCTION_PSC_DETAINED':'Rétention portuaire',
+  'SANCTION_POI':         'Entité d\'intérêt Ukraine',
+  'SPEED_IMPOSSIBLE':     'Vitesse impossible',
+  'SPEED_ANOMALY':        'Vitesse anormale',
+  'NULL_ISLAND':          'Position Null Island',
+  'HIGH_RISK_ZONE':       'Zone à risque',
+  'POSITION_JUMP':        'Saut de position',
+  'RADIO_SNR_DEGRADE':    'Signal AIS dégradé',
+  'RADIO_CFO_EXCESSIF':   'CFO hors spec',
+  'RADIO_CFO_DERIVE':     'Dérive CFO (clone ?)',
+  'DARK_SHIPPING':        'AIS coupé (dark)',
+  'WATCHLIST_HIT':        'Cible watchlist opérateur',
+  'STS_DETECTED':         'Transfert STS suspecté',
+  'LOITERING':            'Comportement de loitering',
+  'FLAG_MISMATCH':        'Changement de pavillon suspecté',
+  'DARK_REAPPEARANCE':    'Réapparition post-dark suspecte',
+};
+
+async function refresh() {
+  try {
+    const r = await fetch('/api/stats');
+    if (!r.ok) return;
+    const s = await r.json();
+
+    document.getElementById('status-bar').textContent =
+      `Dernière MAJ ${new Date().toLocaleTimeString('fr-FR')}`;
+
+    // KPIs
+    document.getElementById('k-total').textContent  = s.total_vessels;
+    document.getElementById('k-active').textContent = s.active_vessels;
+    document.getElementById('k-red').textContent    = s.counts.red    || 0;
+    document.getElementById('k-orange').textContent = s.counts.orange || 0;
+    document.getElementById('k-dark').textContent   = s.dark_count    || 0;
+    document.getElementById('k-uptime').textContent = s.uptime_min;
+
+    // Hourly chart
+    chartHourly.data.datasets[0].data = s.hourly;
+    chartHourly.update('none');
+
+    // Levels donut
+    chartLevels.data.datasets[0].data = [
+      s.counts.red || 0, s.counts.orange || 0,
+      s.counts.green || 0, s.counts.dark || 0
+    ];
+    chartLevels.update('none');
+
+    // Type list
+    const maxT = Math.max(...Object.values(s.type_counts), 1);
+    document.getElementById('type-list').innerHTML =
+      Object.entries(s.type_counts).length === 0
+        ? '<div style="color:#6e7681;font-size:12px">Aucun événement encore</div>'
+        : Object.entries(s.type_counts).map(([k, v]) => `
+          <div class="type-row">
+            <span class="type-label">${TYPE_LABELS[k] || k}</span>
+            <div class="type-bar-wrap"><div class="type-bar" style="width:${Math.round(v/maxT*100)}%"></div></div>
+            <span class="type-count">${v}</span>
+          </div>`).join('');
+
+    // Top 5 vessels
+    const MID_FLAGS = {201:'🇦🇱',205:'🇧🇪',211:'🇩🇪',218:'🇩🇪',219:'🇩🇰',220:'🇩🇰',224:'🇪🇸',225:'🇪🇸',226:'🇫🇷',227:'🇫🇷',228:'🇫🇷',230:'🇫🇮',232:'🇬🇧',233:'🇬🇧',234:'🇬🇧',235:'🇬🇧',237:'🇬🇷',238:'🇭🇷',239:'🇬🇷',240:'🇬🇷',241:'🇬🇷',244:'🇳🇱',245:'🇳🇱',247:'🇮🇹',248:'🇲🇹',249:'🇲🇹',250:'🇮🇪',257:'🇳🇴',258:'🇳🇴',259:'🇳🇴',261:'🇵🇱',263:'🇵🇹',264:'🇷🇴',265:'🇸🇪',266:'🇸🇪',271:'🇹🇷',272:'🇺🇦',273:'🇷🇺',275:'🇱🇻',276:'🇪🇪',277:'🇱🇹',303:'🇺🇸',308:'🇧🇸',309:'🇧🇸',311:'🇧🇸',316:'🇨🇦',319:'🇰🇾',338:'🇺🇸',347:'🇲🇽',351:'🇵🇦',352:'🇵🇦',353:'🇵🇦',354:'🇵🇦',355:'🇵🇦',356:'🇵🇦',357:'🇵🇦',366:'🇺🇸',367:'🇺🇸',368:'🇺🇸',369:'🇺🇸',370:'🇵🇦',371:'🇵🇦',372:'🇵🇦',373:'🇵🇦',374:'🇵🇦',412:'🇨🇳',413:'🇨🇳',414:'🇨🇳',416:'🇹🇼',419:'🇮🇳',422:'🇮🇷',425:'🇮🇶',428:'🇮🇱',431:'🇯🇵',432:'🇯🇵',440:'🇰🇷',441:'🇰🇷',445:'🇰🇵',447:'🇰🇼',450:'🇱🇧',461:'🇴🇲',463:'🇵🇰',466:'🇶🇦',468:'🇸🇾',470:'🇦🇪',477:'🇭🇰',503:'🇦🇺',512:'🇳🇿',514:'🇰🇭',515:'🇰🇭',525:'🇮🇩',533:'🇲🇾',538:'🇲🇭',553:'🇵🇭',563:'🇸🇬',564:'🇸🇬',565:'🇸🇬',566:'🇸🇬',567:'🇹🇭',574:'🇻🇳',601:'🇿🇦',605:'🇩🇿',613:'🇨🇲',619:'🇨🇮',622:'🇪🇬',626:'🇬🇦',627:'🇬🇭',634:'🇰🇪',636:'🇱🇷',637:'🇱🇷',642:'🇱🇾',650:'🇲🇿',657:'🇳🇬',663:'🇸🇳',666:'🇸🇴',671:'🇹🇬',672:'🇹🇳',674:'🇹🇿'};
+    const LEVEL_COLORS = {red:'#f85149', orange:'#d29922', green:'#3fb950'};
+    if ((s.top_vessels || []).length === 0) {
+      document.getElementById('top-vessels-body').innerHTML =
+        '<tr><td colspan="6" style="color:#6e7681">Aucun événement encore enregistré</td></tr>';
+    } else {
+      document.getElementById('top-vessels-body').innerHTML = s.top_vessels.map((v, i) => {
+        const mid = parseInt(String(v.mmsi).slice(0,3));
+        const flag = MID_FLAGS[mid] || '';
+        const scoreColor = v.score >= 6 ? '#f85149' : v.score >= 3 ? '#d29922' : '#e3b341';
+        const medals = ['🥇','🥈','🥉','4.','5.'];
+        return `<tr>
+          <td style="font-size:16px">${medals[i]}</td>
+          <td style="color:#e6edf3;font-weight:700">${v.name}</td>
+          <td style="color:#8b949e">${v.mmsi}</td>
+          <td>${flag}</td>
+          <td><b style="color:#f85149">${v.count}</b></td>
+          <td><b style="color:${scoreColor}">${v.score}</b></td>
+        </tr>`;
+      }).join('');
+    }
+
+    // Zone table
+    const maxZ = Math.max(...Object.values(s.zone_counts), 1);
+    document.getElementById('zone-body').innerHTML =
+      Object.keys(s.zone_counts).length === 0
+        ? '<tr><td colspan="2" style="color:#6e7681">Aucune zone active</td></tr>'
+        : Object.entries(s.zone_counts).map(([z, v]) => `
+          <tr>
+            <td>${z}</td>
+            <td><b style="color:#f85149">${v}</b>
+              <span class="zone-bar" style="width:${Math.round(v/maxZ*60)}px"></span>
+            </td>
+          </tr>`).join('');
+
+  } catch(e) {
+    document.getElementById('status-bar').textContent = 'Serveur non disponible';
+  }
+}
+
+refresh();
+setInterval(refresh, 15000);
+</script>
+</body>
+</html>

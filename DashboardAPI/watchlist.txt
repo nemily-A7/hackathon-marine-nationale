@@ -1,0 +1,4 @@
+# Watchlist Marine Nationale — un MMSI ou IMO par ligne
+# IMO : préfixer par IMO   ex: IMO9876543
+# MMSI: entrer directement ex: 123456789
+# Lignes commençant par # ignorées

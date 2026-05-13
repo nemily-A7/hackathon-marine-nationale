@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>AIS Live — Navires Clean</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --accent: #3fb950; --accent-bg: #0d2a15; --accent-dim: #1c3d22; }
+
+    body {
+      background: #0d1117; color: #e6edf3;
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    }
+
+    header {
+      background: #161b22; border-bottom: 1px solid #30363d;
+      padding: 0 20px; height: 56px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .logo { font-size: 16px; font-weight: 700; }
+    .logo span { color: var(--accent); }
+    .nav { display: flex; gap: 6px; margin-left: 20px; }
+    .nav a {
+      font-size: 12px; padding: 4px 12px; border-radius: 20px;
+      text-decoration: none; border: 1px solid #30363d; color: #8b949e; transition: all .15s;
+    }
+    .nav a:hover { color: #e6edf3; }
+    .nav a.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+    #status {
+      font-size: 12px; margin-left: 14px; padding: 3px 9px;
+      border-radius: 20px; background: #21262d; color: #6e7681;
+    }
+    #status.ok  { color: var(--accent); background: var(--accent-bg); }
+    #status.err { color: #f85149; background: #2d1b1b; }
+
+    .stats { display: flex; gap: 28px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 10px; color: #6e7681; letter-spacing: .08em; margin-top: 1px; }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+    #map { flex: 1; }
+
+    .sidebar {
+      width: 420px; background: #161b22; border-left: 1px solid #30363d;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sb-head {
+      padding: 10px 14px; border-bottom: 1px solid #30363d;
+      font-size: 11px; color: #8b949e; letter-spacing: .1em;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    #clear-btn {
+      font-size: 10px; background: none; border: 1px solid #30363d;
+      color: #6e7681; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+    }
+    #clear-btn:hover { color: #e6edf3; border-color: var(--accent); }
+
+    .cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .cards::-webkit-scrollbar { width: 4px; }
+    .cards::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
+
+    .card {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+      border-left: 4px solid var(--accent); padding: 12px 14px; cursor: pointer;
+      transition: background .15s;
+    }
+    .card:hover { background: #161b22; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--accent); }
+    .card-time { font-size: 10px; color: #6e7681; }
+    .card-meta { font-size: 11px; color: #8b949e; margin: 4px 0 8px; }
+
+    .checks { display: flex; flex-direction: column; gap: 5px; }
+    .check {
+      display: flex; gap: 8px; align-items: flex-start;
+      background: var(--accent-dim); border-radius: 5px; padding: 6px 10px;
+      font-size: 11px; line-height: 1.4;
+    }
+    .check-icon { flex-shrink: 0; font-size: 13px; }
+    .check-text { color: #c9d1d9; }
+
+    .card-radio {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid #21262d;
+      font-size: 10px; color: #6e7681;
+    }
+    .card-match { color: #58a6ff; margin-top: 3px; font-size: 11px; }
+
+    @keyframes flash { 0%{background:#1a3a1a} 100%{background:#0d1117} }
+    .card.flash { animation: flash .7s ease-out; }
+
+    .leaflet-popup-content-wrapper {
+      background: #161b22; color: #e6edf3; border: 1px solid #30363d;
+      border-radius: 6px; font-family: inherit; font-size: 12px;
+    }
+    .leaflet-popup-tip { background: #30363d; }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; color: #6e7681; font-size: 13px; gap: 8px;
+    }
+    .empty-state span { font-size: 32px; }
+  </style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center">
+    <div class="logo">✅ Navires <span>CLEAN</span></div>
+    <div id="status">Connexion...</div>
+    <nav class="nav">
+      <a href="dashboard.html">Tous</a>
+      <a href="dashboard_clean.html" class="active">✅ Clean</a>
+      <a href="dashboard_suspects.html">⚠ Suspects</a>
+      <a href="dashboard_alertes.html">🚨 Alertes</a>
+      <a href="dashboard_sts.html">📦 STS</a>
+      <a href="stats.html">📊 Stats</a>
+    </nav>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">CLEAN REÇUS</div></div>
+    <div class="stat"><div class="stat-val" id="s-filtered" style="color:#6e7681">0</div><div class="stat-lbl">FILTRÉS</div></div>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+  <div class="sidebar">
+    <div class="sb-head">
+      <span>NAVIRES PROPRES — POURQUOI ILS SONT CLEAN</span>
+      <button id="clear-btn" onclick="clearCards()">Effacer</button>
+    </div>
+    <div class="cards" id="cards">
+      <div class="empty-state" id="empty">
+        <span>✅</span>
+        En attente de navires clean...
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const map = L.map('map', { center: [30, 10], zoom: 2 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', maxZoom: 18
+}).addTo(map);
+
+const markers = {};
+let total = 0, filtered = 0;
+
+function makeIcon() {
+  return L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:#3fb950;border:2px solid rgba(255,255,255,.35);box-shadow:0 0 8px #3fb95088"></div>`,
+    iconSize: [12, 12], className: ''
+  });
+}
+
+function addCard(d) {
+  document.getElementById('empty').style.display = 'none';
+  const card = document.createElement('div');
+  card.className = 'card flash';
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-name">${d.name}</div>
+      <div class="card-time">${d.timestamp}</div>
+    </div>
+    <div class="card-meta">MMSI ${d.mmsi} · ${d.type} · ${d.speed} kt · ${d.lat.toFixed(2)}°, ${d.lon.toFixed(2)}°</div>
+    <div class="checks">
+      ${d.clean_checks.map(c => `
+        <div class="check">
+          <span class="check-icon">✅</span>
+          <span class="check-text">${c}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="card-radio">📡 AIS Ch${d.channel} ${d.freq.toFixed(3)} MHz · RSSI ${d.rssi_dbm} dBm · SNR ${d.snr} dB · CFO ${d.cfo_hz > 0 ? '+' : ''}${d.cfo_hz} Hz · ${d.power} W</div>
+    <div class="card-match">↳ Empreinte live : ${d.fp_count > 1 ? `Revu ${d.fp_count}× depuis ${d.fp_first_seen} · dérive CFO ${d.fp_cfo_drift} Hz` : `1ère détection · CFO ${d.fp_cfo_ref > 0 ? '+' : ''}${d.fp_cfo_ref} Hz enregistré`}</div>
+  `;
+  card.onclick = () => { map.setView([d.lat, d.lon], 7); if(markers[d.mmsi]) markers[d.mmsi].openPopup(); };
+  const container = document.getElementById('cards');
+  container.insertBefore(card, container.firstChild);
+  while (container.children.length > 61) container.removeChild(container.lastChild);
+}
+
+function clearCards() { document.getElementById('cards').innerHTML = '<div class="empty-state" id="empty"><span>✅</span>En attente de navires clean...</div>'; }
+
+const trails = {};
+function updateTrail(d) {
+  if (!d.trail || d.trail.length < 2) return;
+  if (trails[d.mmsi]) map.removeLayer(trails[d.mmsi]);
+  trails[d.mmsi] = L.polyline(d.trail, { color: '#3fb95033', weight: 1.5, opacity: 0.7 }).addTo(map);
+}
+
+function connect() {
+  const ws = new WebSocket('ws://localhost:8765');
+  const statusEl = document.getElementById('status');
+  ws.onopen  = () => { statusEl.textContent = '● CONNECTÉ'; statusEl.className = 'ok'; };
+  ws.onclose = () => { statusEl.textContent = '● Reconnexion...'; statusEl.className = 'err'; setTimeout(connect, 3000); };
+
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    filtered++;
+    document.getElementById('s-filtered').textContent = filtered;
+
+    if (d.alert_level !== 'green') return;
+
+    total++;
+    document.getElementById('s-total').textContent = total;
+
+    const popup = `<b>${d.name}</b><br>MMSI: ${d.mmsi}<br>Type: ${d.type} · ${d.speed} kt<br><span style="color:#3fb950">✅ Navire clean</span>`;
+    if (markers[d.mmsi]) {
+      markers[d.mmsi].setLatLng([d.lat, d.lon]).setPopupContent(popup);
+    } else {
+      markers[d.mmsi] = L.marker([d.lat, d.lon], { icon: makeIcon() })
+        .bindPopup(popup, { maxWidth: 250 }).addTo(map);
+    }
+    updateTrail(d);
+    addCard(d);
+  };
+}
+connect();
+</script>
+</body>
+</html>

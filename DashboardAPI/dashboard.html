@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>AIS Live — Identification Passive</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold: #c9a227; --gold-bg: #100e06; --gold-dim: #6e5512;
+      --navy: #030c1c; --surface: #060f24; --border: #152d4f;
+      --text: #ccd9e8; --text-dim: #4e6a88;
+    }
+
+    body {
+      background: var(--navy);
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      background: linear-gradient(to bottom, #071220, var(--navy));
+      border-top: 3px solid transparent;
+      border-image: linear-gradient(to right, #002395 33.3%, #ffffff 33.3% 66.6%, #ed2939 66.6%) 1 0 0 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      box-shadow: 0 2px 24px rgba(0,15,60,.6);
+    }
+    .logo {
+      font-family: 'Exo 2', sans-serif; font-size: 14px; font-weight: 700;
+      letter-spacing: .06em; color: var(--text); display: flex; align-items: center; gap: 10px;
+    }
+    .logo-anchor { color: var(--gold); font-size: 20px; }
+    .logo-title  { color: var(--gold); font-weight: 900; letter-spacing: .08em; }
+    .logo-sep    { color: var(--border); }
+    .logo-sub    { font-weight: 400; color: var(--text-dim); font-size: 11px; letter-spacing: .04em; }
+
+    .nav { display: flex; gap: 5px; margin-left: 18px; }
+    .nav a {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 11px; font-weight: 600; padding: 4px 13px; border-radius: 20px;
+      text-decoration: none; border: 1px solid var(--border); color: var(--text-dim);
+      transition: all .2s; letter-spacing: .03em;
+    }
+    .nav a:hover { color: var(--text); border-color: #1e4070; background: #0b1a30; }
+    .nav a.active {
+      background: linear-gradient(to bottom, #181405, var(--gold-bg));
+      color: var(--gold); border-color: var(--gold-dim);
+      box-shadow: 0 0 10px rgba(201,162,39,.18);
+    }
+
+    #status {
+      font-size: 12px;
+      margin-left: 14px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      background: #091525;
+      color: #6e7681;
+    }
+    #status.ok  { color: #3fb950; background: #0d2a15; }
+    #status.err { color: #f85149; background: #2d1b1b; }
+
+    .stats { display: flex; gap: 28px; }
+    .stat { text-align: center; }
+    .stat-val  { font-size: 22px; font-weight: 700; }
+    .stat-lbl  { font-size: 10px; color: #6e7681; letter-spacing: .08em; margin-top: 1px; }
+    .c-green   { color: #3fb950; }
+    .c-orange  { color: #d29922; }
+    .c-red     { color: #f85149; }
+    .c-blue    { color: #58a6ff; }
+
+    /* ── Layout ────────────────────────────────────────── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    #map { flex: 1; }
+
+    /* ── Sidebar ───────────────────────────────────────── */
+    .sidebar {
+      width: 390px;
+      background: #060f24;
+      border-left: 1px solid #152d4f;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sb-head {
+      padding: 10px 14px;
+      border-bottom: 1px solid #152d4f;
+      font-size: 11px;
+      color: #8b949e;
+      letter-spacing: .1em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #clear-btn {
+      font-size: 10px;
+      background: none;
+      border: 1px solid #152d4f;
+      color: #6e7681;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #clear-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+
+    .events { flex: 1; overflow-y: auto; }
+    .events::-webkit-scrollbar { width: 4px; }
+    .events::-webkit-scrollbar-track { background: transparent; }
+    .events::-webkit-scrollbar-thumb { background: #152d4f; border-radius: 2px; }
+
+    .ev {
+      padding: 10px 14px;
+      border-bottom: 1px solid #091525;
+      cursor: pointer;
+      transition: background .15s;
+      border-left: 3px solid transparent;
+    }
+    .ev:hover { background: #1c2128; }
+    .ev.green  { border-left-color: #3fb950; }
+    .ev.orange { border-left-color: #d29922; }
+    .ev.red    { border-left-color: #f85149; }
+
+    .ev-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .ev-name { font-size: 13px; font-weight: 700; }
+    .ev-time { font-size: 10px; color: #6e7681; flex-shrink: 0; margin-left: 8px; }
+    .ev-meta { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    .ev-alerts { font-size: 11px; color: #f85149; margin-top: 4px; }
+    .ev-match  { font-size: 11px; color: #58a6ff; margin-top: 3px; }
+    .ev-radio  { font-size: 10px; color: #6e7681; margin-top: 3px; }
+
+    /* flash animation on new event */
+    @keyframes flash { 0%{background:#1f2d3d} 100%{background:transparent} }
+    .ev.flash { animation: flash .6s ease-out; }
+
+    /* ── Legend ────────────────────────────────────────── */
+    .legend {
+      padding: 10px 14px;
+      border-top: 1px solid #152d4f;
+      font-size: 11px;
+      color: #8b949e;
+      display: flex;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .leg-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* ── Popup override ────────────────────────────────── */
+    .zone-tooltip {
+      background: #060f24 !important; border: 1px solid #f8514966 !important;
+      color: #f85149 !important; font-family: inherit !important;
+      font-size: 11px !important; font-weight: 700 !important; box-shadow: none !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #071325; color: #ccd9e8;
+      border: 1px solid #c9a22755; border-radius: 8px;
+      font-family: inherit; font-size: 12px;
+      box-shadow: 0 4px 20px rgba(0,10,50,.7);
+    }
+    .leaflet-popup-tip { background: #071325; }
+    .popup-name { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+    .popup-row  { margin: 2px 0; }
+    .popup-alert{ color: #f85149; margin-top: 6px; }
+    .popup-ok   { color: #3fb950; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center">
+    <div class="logo"><span class="logo-anchor">⚓</span><span class="logo-title">MARINE NATIONALE</span><span class="logo-sep">·</span><span class="logo-sub">MICA CENTER — SURVEILLANCE AIS</span></div>
+    <div id="status">Connexion...</div>
+    <nav class="nav">
+      <a href="dashboard.html" class="active">Tous</a>
+      <a href="dashboard_clean.html">✅ Clean</a>
+      <a href="dashboard_suspects.html">⚠ Suspects</a>
+      <a href="dashboard_alertes.html">🚨 Alertes <span id="alert-badge" style="display:none;background:#f85149;color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:2px;vertical-align:middle">0</span></a>
+      <a href="dashboard_sts.html">📦 STS</a>
+      <a href="stats.html">📊 Stats</a>
+      <a href="dashboard_settings.html">⚙ Paramètres</a>
+    </nav>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val c-blue"  id="s-total">0</div><div class="stat-lbl">NAVIRES</div></div>
+    <div class="stat"><div class="stat-val c-green" id="s-clean">0</div><div class="stat-lbl">CLEAN</div></div>
+    <div class="stat"><div class="stat-val c-orange"id="s-warn">0</div><div class="stat-lbl">SUSPECTS</div></div>
+    <div class="stat"><div class="stat-val c-red"   id="s-alert">0</div><div class="stat-lbl">ALERTES</div></div>
+    <div class="stat"><div class="stat-val c-blue"  id="s-rate">0</div><div class="stat-lbl">MSG/SEC</div></div>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+  <div class="sidebar">
+    <div class="sb-head">
+      <span>ÉVÉNEMENTS EN TEMPS RÉEL</span>
+      <button id="clear-btn" onclick="clearEvents()">Effacer</button>
+    </div>
+    <div class="events" id="events"></div>
+    <div class="legend">
+      <span><span class="leg-dot" style="background:#3fb950"></span>Clean</span>
+      <span><span class="leg-dot" style="background:#d29922"></span>Suspect</span>
+      <span><span class="leg-dot" style="background:#f85149"></span>Alerte</span>
+      <span style="margin-left:auto;font-size:10px;color:#6e7681">[ITU-R M.1371-5]</span>
+      <button id="mute-btn" onclick="toggleMute()" style="font-size:10px;background:none;border:1px solid #152d4f;color:#6e7681;padding:2px 8px;border-radius:4px;cursor:pointer;margin-left:10px;min-width:54px">🔔 Son</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Map setup ──────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [30, 10], zoom: 2, zoomControl: true });
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', maxZoom: 18
+}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  attribution: '', maxZoom: 18, pane: 'shadowPane'
+}).addTo(map);
+
+// ── Marker cluster ─────────────────────────────────────────────────────────
+const clusterGroup = L.markerClusterGroup({
+  maxClusterRadius: 40,
+  spiderfyOnMaxZoom: true,
+  showCoverageOnHover: false,
+  iconCreateFunction: (cluster) => {
+    const n = cluster.getChildCount();
+    const sz = n > 100 ? 40 : n > 20 ? 32 : 26;
+    return L.divIcon({
+      html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:#58a6ff22;border:2px solid #58a6ff88;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#58a6ff">${n}</div>`,
+      iconSize: [sz, sz], className: ''
+    });
+  }
+});
+clusterGroup.addTo(map);
+
+// ── State ──────────────────────────────────────────────────────────────────
+const markers   = {};
+let total = 0, clean = 0, warn = 0, alertCount = 0;
+
+function colorFor(level) {
+  return level === 'red' ? '#f85149' : level === 'orange' ? '#d29922' : '#3fb950';
+}
+
+function makeIcon(color) {
+  return L.divIcon({
+    html: `<div style="
+      width:12px;height:12px;border-radius:50%;
+      background:${color};
+      border:2px solid rgba(255,255,255,.35);
+      box-shadow:0 0 6px ${color}88;
+    "></div>`,
+    iconSize: [12, 12],
+    className: ''
+  });
+}
+
+function makePopup(d) {
+  const alertHtml = d.alerts.length
+    ? `<div class="popup-alert">⚠ ${d.alerts.join('<br>⚠ ')}</div>`
+    : `<div class="popup-ok">✅ Aucune alerte</div>`;
+  return `
+    <div class="popup-name">${d.name}</div>
+    <div class="popup-row">MMSI : <b>${d.mmsi}</b></div>
+    <div class="popup-row">Type : ${d.type} · ${d.speed} kt</div>
+    <div class="popup-row">Pos  : ${d.lat.toFixed(3)}°, ${d.lon.toFixed(3)}°</div>
+    <hr style="border-color:#152d4f;margin:6px 0"/>
+    <div class="popup-row" style="color:#6e7681;font-size:10px">📡 AIS ITU-R M.1371-5</div>
+    <div class="popup-row">Ch${d.channel} ${d.freq.toFixed(3)} MHz · RSSI ${d.rssi_dbm} dBm · SNR ${d.snr} dB</div>
+    <div class="popup-row" style="color:#6e7681;font-size:10px">CFO ${d.cfo_hz > 0 ? '+' : ''}${d.cfo_hz} Hz · ${d.power} W · ${d.dist_km} km</div>
+    <hr style="border-color:#152d4f;margin:6px 0"/>
+    <div class="popup-row">↳ <span style="color:#58a6ff">${d.fp_count > 1 ? `Revu ${d.fp_count}× depuis ${d.fp_first_seen}` : '1ère détection'}</span> · dérive CFO ${d.fp_cfo_drift} Hz</div>
+    ${alertHtml}
+  `;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function addEvent(d) {
+  const color = colorFor(d.alert_level);
+  const ev = document.createElement('div');
+  ev.className = `ev ${d.alert_level} flash`;
+  ev.innerHTML = `
+    <div class="ev-top">
+      <div class="ev-name">${d.flag || ''} ${d.name}</div>
+      <div class="ev-time" data-epoch="${d.ts_epoch}">${timeAgo(d.ts_epoch)}</div>
+    </div>
+    <div class="ev-meta">MMSI ${d.mmsi} · ${d.type} · ${d.speed} kt</div>
+    ${d.alerts.length ? `<div class="ev-alerts">⚠ ${d.alerts.join(' &nbsp;|&nbsp; ')}</div>` : ''}
+    <div class="ev-match">↳ ${d.fp_count > 1 ? `Revu ${d.fp_count}× depuis ${d.fp_first_seen} · dérive ${d.fp_cfo_drift} Hz` : `1ère détection · CFO ${d.fp_cfo_ref > 0 ? '+' : ''}${d.fp_cfo_ref} Hz`}</div>
+    <div class="ev-radio">${d.freq} MHz · BW ${d.bw} kHz · ${d.power} W</div>
+  `;
+  ev.onclick = () => {
+    map.setView([d.lat, d.lon], 7);
+    if (markers[d.mmsi]) markers[d.mmsi].openPopup();
+  };
+  const container = document.getElementById('events');
+  container.insertBefore(ev, container.firstChild);
+  while (container.children.length > 60) container.removeChild(container.lastChild);
+}
+
+function clearEvents() {
+  document.getElementById('events').innerHTML = '';
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('s-total').textContent = total;
+  document.getElementById('s-clean').textContent = clean;
+  document.getElementById('s-warn').textContent  = warn;
+  document.getElementById('s-alert').textContent = alertCount;
+}
+
+// ── Zones à risque ────────────────────────────────────────────────────────
+const RISK_ZONES = [
+  {name:'Golfe de Guinée',               lat:[-5,7],   lon:[-5,15],   color:'#f85149'},
+  {name:'Golfe Persique / Iran',         lat:[23,30],  lon:[48,57],   color:'#f85149'},
+  {name:'Bab-el-Mandeb / Mer Rouge sud', lat:[11,16],  lon:[41,48],   color:'#f85149'},
+  {name:'Mer Rouge nord',                lat:[16,30],  lon:[32,44],   color:'#d29922'},
+  {name:'Détroit de Malacca',            lat:[1,6],    lon:[98,105],  color:'#d29922'},
+  {name:'Eaux nord-coréennes',           lat:[36,43],  lon:[124,132], color:'#f85149'},
+  {name:'Côtes somaliennes',             lat:[2,15],   lon:[41,52],   color:'#d29922'},
+];
+RISK_ZONES.forEach(z => {
+  L.rectangle([[z.lat[0], z.lon[0]], [z.lat[1], z.lon[1]]], {
+    color: z.color, weight: 1.5, opacity: 0.7,
+    fillColor: z.color, fillOpacity: 0.08, dashArray: '4 4'
+  }).bindTooltip(`⚠ ${z.name}`, { permanent: false, direction: 'center',
+    className: 'zone-tooltip'
+  }).addTo(map);
+});
+
+let msgCount = 0;
+setInterval(() => { document.getElementById('s-rate').textContent = msgCount; msgCount = 0; }, 1000);
+setInterval(() => {
+  document.querySelectorAll('.ev-time[data-epoch]').forEach(el => {
+    el.textContent = timeAgo(parseInt(el.dataset.epoch));
+  });
+}, 30000);
+
+// ── Trajectoires ──────────────────────────────────────────────────────────
+const trails = {};
+const TRAIL_COLORS = { green: '#3fb95055', orange: '#d2992288', red: '#f8514988' };
+
+function updateTrail(d) {
+  if (!d.trail || d.trail.length < 2) return;
+  const color = TRAIL_COLORS[d.alert_level] || '#ffffff33';
+  if (trails[d.mmsi]) map.removeLayer(trails[d.mmsi]);
+  trails[d.mmsi] = L.polyline(d.trail, {
+    color, weight: 2, opacity: 0.8, smoothFactor: 1
+  }).addTo(map);
+}
+
+// ── Alerte sonore ─────────────────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let muted = true;
+
+function timeAgo(epoch) {
+  if (!epoch) return '';
+  const diff = Math.floor(Date.now() / 1000 - epoch);
+  if (diff < 60)   return `il y a ${diff}s`;
+  if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
+  return `il y a ${Math.floor(diff / 3600)}h`;
+}
+
+function toggleMute() {
+  muted = !muted;
+  const btn = document.getElementById('mute-btn');
+  if (btn) { btn.textContent = muted ? '🔇 Muet' : '🔔 Son'; btn.style.color = muted ? '#f85149' : '#6e7681'; }
+}
+
+function beep(freq = 880, dur = 0.15, vol = 0.3) {
+  if (muted) return;
+  try {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.start(); osc.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connect() {
+  const ws = new WebSocket('ws://localhost:8765');
+  const statusEl = document.getElementById('status');
+
+  ws.onopen = () => {
+    statusEl.textContent = '● CONNECTÉ';
+    statusEl.className   = 'ok';
+  };
+
+  ws.onclose = () => {
+    statusEl.textContent = '● DÉCONNECTÉ — reconnexion...';
+    statusEl.className   = 'err';
+    setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => {
+    statusEl.textContent = '● ERREUR';
+    statusEl.className   = 'err';
+  };
+
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    msgCount++;
+
+    // ── Dark shipping ──
+    if (d.event_type === 'dark_shipping') {
+      beep(330, 0.4, 0.3);
+      alertCount++; total++;
+      updateStats();
+      const darkIcon = L.divIcon({
+        html: `<div style="width:12px;height:12px;border-radius:50%;background:#555;border:2px solid #999;opacity:.85"></div>`,
+        iconSize:[12,12], className:''
+      });
+      const popup = `<b>🌑 ${d.name}</b><br>MMSI: ${d.mmsi}<br><span style="color:#aaa">AIS coupé depuis ${d.minutes_silent} min</span><br><span style="color:#888;font-size:11px">Dernière pos : ${d.last_lat.toFixed(3)}°, ${d.last_lon.toFixed(3)}°</span>`;
+      if (markers[d.mmsi]) {
+        markers[d.mmsi].setIcon(darkIcon).setPopupContent(popup);
+      } else {
+        markers[d.mmsi] = L.marker([d.last_lat, d.last_lon], { icon: darkIcon })
+          .bindPopup(popup, { maxWidth: 260 });
+        clusterGroup.addLayer(markers[d.mmsi]);
+      }
+      const ev = document.createElement('div');
+      ev.className = 'ev red flash';
+      ev.innerHTML = `<div class="ev-top"><div class="ev-name" style="color:#888">🌑 ${d.name}</div><div class="ev-time">${d.timestamp}</div></div><div class="ev-meta">MMSI ${d.mmsi} · AIS coupé depuis ${d.minutes_silent} min</div>`;
+      ev.onclick = () => { map.setView([d.last_lat, d.last_lon], 7); if(markers[d.mmsi]) markers[d.mmsi].openPopup(); };
+      const container = document.getElementById('events');
+      container.insertBefore(ev, container.firstChild);
+      while (container.children.length > 60) container.removeChild(container.lastChild);
+      return;
+    }
+
+    // Stats AIS normal
+    total++;
+    if      (d.alert_level === 'red')    alertCount++;
+    else if (d.alert_level === 'orange') warn++;
+    else                                 clean++;
+    updateStats();
+
+    // Badge alertes
+    if (d.alert_level === 'red' || d.event_type === 'dark_shipping') {
+      const badge = document.getElementById('alert-badge');
+      badge.style.display = 'inline-block';
+      badge.textContent = parseInt(badge.textContent || '0') + 1;
+    }
+
+    // Alerte sonore
+    if      (d.alert_level === 'red')    beep(660, 0.25, 0.4);
+    else if (d.alert_level === 'orange') beep(440, 0.12, 0.2);
+
+    // Marker + trajectoire
+    const color = colorFor(d.alert_level);
+    const icon  = makeIcon(color);
+    const popup = makePopup(d);
+
+    if (markers[d.mmsi]) {
+      markers[d.mmsi].setLatLng([d.lat, d.lon]).setIcon(icon).setPopupContent(popup);
+    } else {
+      markers[d.mmsi] = L.marker([d.lat, d.lon], { icon })
+        .bindPopup(popup, { maxWidth: 280 });
+      clusterGroup.addLayer(markers[d.mmsi]);
+    }
+    updateTrail(d);
+
+    // Sidebar — skip duplicate alerts, still update map
+    if (d.suppress_card) return;
+    addEvent(d);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>

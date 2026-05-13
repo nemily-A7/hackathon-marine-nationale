@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <title>AIS Live — Navires en Alerte</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #f85149; --accent-bg: #1e0808; --accent-dim: #280f0f;
+      --gold: #c9a227; --gold-bg: #100e06; --gold-dim: #6e5512;
+      --navy: #030c1c; --surface: #060f24; --border: #152d4f;
+      --text: #ccd9e8; --text-dim: #4e6a88; --text-muted: #2e4a64;
+    }
+
+    body {
+      background: var(--navy); color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(to bottom, #071220, var(--navy));
+      border-top: 3px solid transparent;
+      border-image: linear-gradient(to right, #002395 33.3%, #ffffff 33.3% 66.6%, #ed2939 66.6%) 1 0 0 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px; height: 60px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+      box-shadow: 0 2px 24px rgba(0,15,60,.6);
+    }
+    .logo {
+      font-family: 'Exo 2', sans-serif; font-size: 14px; font-weight: 700;
+      letter-spacing: .06em; color: var(--text); display: flex; align-items: center; gap: 10px;
+    }
+    .logo-anchor { color: var(--gold); font-size: 20px; }
+    .logo-title  { color: var(--gold); font-weight: 900; letter-spacing: .08em; }
+    .logo-sep    { color: var(--border); margin: 0 2px; }
+    .logo-sub    { font-weight: 400; color: var(--text-dim); font-size: 11px; letter-spacing: .04em; }
+
+    .nav { display: flex; gap: 5px; margin-left: 18px; }
+    .nav a {
+      font-family: 'Exo 2', sans-serif;
+      font-size: 11px; font-weight: 600; padding: 4px 13px; border-radius: 20px;
+      text-decoration: none; border: 1px solid var(--border); color: var(--text-dim);
+      transition: all .2s; letter-spacing: .03em;
+    }
+    .nav a:hover { color: var(--text); border-color: #1e4070; background: #0b1a30; }
+    .nav a.active {
+      background: linear-gradient(to bottom, #181405, var(--gold-bg));
+      color: var(--gold); border-color: var(--gold-dim);
+      box-shadow: 0 0 10px rgba(201,162,39,.18);
+    }
+
+    #status {
+      font-size: 12px; margin-left: 14px; padding: 3px 9px;
+      border-radius: 20px; background: #091525; color: #6e7681;
+    }
+    #status.ok  { color: #3fb950; background: #0d2a15; }
+    #status.err { color: #f85149; background: #2d1b1b; }
+
+    .stats { display: flex; gap: 28px; }
+    .stat { text-align: center; }
+    .stat-val { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 10px; color: #6e7681; letter-spacing: .08em; margin-top: 1px; }
+
+    .main { display: flex; flex: 1; overflow: hidden; }
+    #map { flex: 1; }
+
+    .sidebar {
+      width: 430px; background: #060f24; border-left: 1px solid #152d4f;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sb-head {
+      padding: 10px 14px; border-bottom: 1px solid #152d4f;
+      font-size: 11px; color: #8b949e; letter-spacing: .1em;
+      display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+    }
+    #clear-btn {
+      font-size: 10px; background: none; border: 1px solid #152d4f;
+      color: #6e7681; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+    }
+    #clear-btn:hover { color: #e6edf3; border-color: var(--accent); }
+
+    #mute-btn {
+      font-size: 10px; background: none; border: 1px solid #152d4f;
+      color: #6e7681; padding: 2px 8px; border-radius: 4px; cursor: pointer; min-width: 54px;
+    }
+    #mute-btn:hover { color: #e6edf3; }
+    #mute-btn.muted { background: #2d1b1b; color: #f85149; border-color: #f8514966; }
+
+    #search-box {
+      background: #030c1c; border: 1px solid #152d4f; color: #e6edf3;
+      font-family: inherit; font-size: 11px; padding: 4px 10px;
+      border-radius: 20px; outline: none; width: 100%;
+    }
+    #search-box::placeholder { color: #6e7681; }
+    #search-box:focus { border-color: var(--accent); }
+    #search-wrap { padding: 8px 10px; border-bottom: 1px solid #152d4f; flex-shrink: 0; }
+
+    .cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+    .cards::-webkit-scrollbar { width: 4px; }
+    .cards::-webkit-scrollbar-thumb { background: #152d4f; border-radius: 2px; }
+
+    .card {
+      background: linear-gradient(135deg, #070f24, #030c1c);
+      border: 1px solid #1a2e4a; border-radius: 10px;
+      border-left: 3px solid var(--accent); padding: 12px 14px; cursor: pointer;
+      transition: all .2s; box-shadow: 0 2px 12px rgba(0,8,40,.5);
+    }
+    .card:hover { background: #0c1830; box-shadow: 0 4px 20px rgba(0,8,40,.7); transform: translateY(-1px); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .card-name { font-size: 14px; font-weight: 700; color: var(--accent); }
+    .card-time { font-size: 10px; color: #6e7681; }
+    .card-mmsi { font-size: 11px; color: #8b949e; margin: 3px 0; }
+    .card-meta { font-size: 11px; color: #8b949e; margin-bottom: 8px; }
+
+    .severity-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #f8514922; border: 1px solid #f8514966;
+      border-radius: 20px; padding: 2px 10px; font-size: 11px;
+      color: var(--accent); font-weight: 700; margin-bottom: 8px;
+    }
+
+    .risk-score {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-left: 8px; font-size: 11px; font-weight: 700;
+    }
+    .risk-bar-wrap { width: 60px; height: 6px; background: #091525; border-radius: 3px; display: inline-block; }
+    .risk-bar { height: 100%; border-radius: 3px; }
+    .risk-val { min-width: 28px; }
+
+    .alerts-list { display: flex; flex-direction: column; gap: 6px; }
+    .alert-item {
+      background: var(--accent-dim); border-radius: 6px; padding: 9px 11px;
+      border: 1px solid #f8514933;
+    }
+    .alert-label {
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      margin-bottom: 4px; display: flex; align-items: center; gap: 5px;
+    }
+    .alert-num {
+      background: var(--accent); color: #030c1c;
+      border-radius: 50%; width: 16px; height: 16px; font-size: 10px;
+      display: inline-flex; align-items: center; justify-content: center; font-weight: 900;
+      flex-shrink: 0;
+    }
+    .alert-detail { font-size: 11px; color: #c9d1d9; line-height: 1.5; }
+
+    .card-radio {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid #091525;
+      font-size: 10px; color: #6e7681;
+    }
+    .card-match { color: #58a6ff; margin-top: 3px; font-size: 11px; }
+
+    @keyframes flash { 0%{background:#1a0808;box-shadow:0 0 20px rgba(248,81,73,.3)} 100%{background:linear-gradient(135deg,#070f24,#030c1c);box-shadow:0 2px 12px rgba(0,8,40,.5)} }
+    .card.flash { animation: flash 1.2s ease-out; }
+
+    /* pulsing red dot animation for serious alerts */
+    @keyframes pulse-ring {
+      0%  { transform: scale(1);   opacity: 1; }
+      60% { transform: scale(2.2); opacity: 0; }
+      100%{ transform: scale(2.2); opacity: 0; }
+    }
+    .pulse-marker { position: relative; }
+    .pulse-marker::before {
+      content: '';
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%; border-radius: 50%;
+      background: #f85149;
+      animation: pulse-ring 1.6s ease-out infinite;
+    }
+
+    .zone-tooltip {
+      background: #060f24 !important; border: 1px solid #f8514966 !important;
+      color: #f85149 !important; font-family: inherit !important;
+      font-size: 11px !important; font-weight: 700 !important;
+      box-shadow: none !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #071325; color: #ccd9e8;
+      border: 1px solid #c9a22755; border-radius: 8px;
+      font-family: inherit; font-size: 12px;
+      box-shadow: 0 4px 20px rgba(0,10,50,.7);
+    }
+    .leaflet-popup-tip { background: #071325; }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; color: #6e7681; font-size: 13px; gap: 8px;
+    }
+    .empty-state span { font-size: 32px; }
+
+    /* ── History modal ─────────────────────────────────────────────────── */
+    #hist-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.75); z-index: 9000;
+      align-items: center; justify-content: center;
+    }
+    #hist-overlay.open { display: flex; }
+    #hist-modal {
+      background: #060f24; border: 1px solid #152d4f; border-radius: 10px;
+      width: 720px; max-width: 96vw; max-height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #hist-head {
+      padding: 12px 16px; border-bottom: 1px solid #152d4f;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    #hist-head h2 { font-size: 13px; font-weight: 700; color: #e6edf3; }
+    #hist-filters { display: flex; gap: 6px; }
+    .hf-btn {
+      font-size: 11px; padding: 3px 10px; border-radius: 20px; cursor: pointer;
+      background: none; border: 1px solid #152d4f; color: #8b949e; transition: all .15s;
+    }
+    .hf-btn:hover { color: #e6edf3; }
+    .hf-btn.active-red    { background: #2d1b1b; color: #f85149; border-color: #f85149; }
+    .hf-btn.active-orange { background: #2a1f0a; color: #d29922; border-color: #d29922; }
+    .hf-btn.active-dark   { background: #1a1a1a; color: #aaa;    border-color: #888; }
+    .hf-btn.active-all    { background: #1f3358; color: #58a6ff; border-color: #58a6ff; }
+    .hf-btn.active-time   { background: #1a2b1a; color: #3fb950; border-color: #3fb950; }
+    #hist-close {
+      font-size: 18px; background: none; border: none; color: #6e7681; cursor: pointer; line-height: 1;
+    }
+    #hist-close:hover { color: #e6edf3; }
+
+    /* ── Vessel detail modal ───────────────────────────────────────────── */
+    #vessel-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.8); z-index: 9100;
+      align-items: center; justify-content: center;
+    }
+    #vessel-overlay.open { display: flex; }
+    #vessel-modal {
+      background: #060f24; border: 1px solid #152d4f; border-radius: 10px;
+      width: 660px; max-width: 96vw; max-height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #vessel-head {
+      padding: 14px 18px; border-bottom: 1px solid #152d4f;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    #vessel-title { font-size: 16px; font-weight: 700; color: #e6edf3; }
+    #vessel-subtitle { font-size: 11px; color: #8b949e; margin-top: 2px; }
+    #vessel-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    #vessel-body::-webkit-scrollbar { width: 4px; }
+    #vessel-body::-webkit-scrollbar-thumb { background: #152d4f; border-radius: 2px; }
+    .vessel-event {
+      background: #030c1c; border: 1px solid #152d4f; border-radius: 6px;
+      border-left: 4px solid #f85149; padding: 10px 12px;
+    }
+    .vessel-event.lvl-orange { border-left-color: #d29922; }
+    .vessel-event.lvl-dark   { border-left-color: #888; }
+    .vessel-event-top { display: flex; justify-content: space-between; font-size: 11px; color: #8b949e; margin-bottom: 5px; }
+    .vessel-event-alerts { display: flex; flex-direction: column; gap: 3px; }
+    .vessel-event-alert { font-size: 11px; color: #f85149; }
+    .vessel-event-alert.orange { color: #d29922; }
+
+    /* ── Fullscreen ────────────────────────────────────────────────────── */
+    #fs-btn {
+      font-size: 10px; background: none; border: 1px solid #152d4f;
+      color: #6e7681; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+    }
+    #fs-btn:hover { color: #e6edf3; }
+
+    /* ── Nav badge ─────────────────────────────────────────────────────── */
+    .nav-badge {
+      display: inline-block; background: #f85149; color: #fff;
+      border-radius: 10px; font-size: 9px; font-weight: 700;
+      padding: 1px 5px; margin-left: 4px; vertical-align: middle;
+    }
+    #hist-body {
+      flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    #hist-body::-webkit-scrollbar { width: 4px; }
+    #hist-body::-webkit-scrollbar-thumb { background: #152d4f; border-radius: 2px; }
+    #hist-count { font-size: 11px; color: #6e7681; padding: 4px 16px 8px; flex-shrink: 0; }
+
+    .hcard {
+      background: #030c1c; border: 1px solid #152d4f; border-radius: 7px;
+      border-left: 4px solid #f85149; padding: 10px 12px; font-size: 12px;
+    }
+    .hcard.lvl-orange { border-left-color: #d29922; }
+    .hcard.lvl-dark   { border-left-color: #888; }
+    .hcard-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .hcard-name { font-weight: 700; color: #e6edf3; }
+    .hcard-ts   { font-size: 10px; color: #6e7681; }
+    .hcard-meta { color: #8b949e; margin-bottom: 6px; font-size: 11px; }
+    .hcard-alerts { display: flex; flex-direction: column; gap: 3px; }
+    .hcard-alert { color: #c9d1d9; font-size: 11px; padding-left: 4px; }
+    .hcard-alert.red    { color: #f85149; }
+    .hcard-alert.orange { color: #d29922; }
+    .hcard-alert.dark   { color: #aaa; }
+  </style>
+</head>
+<body>
+<header>
+  <div style="display:flex;align-items:center">
+    <div class="logo"><span class="logo-anchor">⚓</span><span class="logo-title">MARINE NATIONALE</span><span class="logo-sep">·</span><span class="logo-sub">MICA CENTER — ALERTES CRITIQUES</span></div>
+    <div id="status">Connexion...</div>
+    <nav class="nav">
+      <a href="dashboard.html">Tous</a>
+      <a href="dashboard_clean.html">✅ Clean</a>
+      <a href="dashboard_suspects.html">⚠ Suspects</a>
+      <a href="dashboard_alertes.html" class="active">🚨 Alertes <span id="nav-badge" class="nav-badge" style="display:none">0</span></a>
+      <a href="dashboard_sts.html">📦 STS</a>
+      <button id="fs-btn" onclick="toggleFullscreen()" title="Plein écran carte">⛶</button>
+      <a href="stats.html">📊 Stats</a>
+      <a href="dashboard_settings.html">⚙ Paramètres</a>
+    </nav>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">ALERTES REÇUES</div></div>
+    <div class="stat"><div class="stat-val" id="s-max-alerts" style="color:#6e7681">0</div><div class="stat-lbl">MAX CRITÈRES</div></div>
+    <div class="stat"><div class="stat-val" id="s-filtered" style="color:#6e7681">0</div><div class="stat-lbl">FILTRÉS</div></div>
+    <div class="stat"><div class="stat-val" id="s-rate" style="color:#58a6ff">0</div><div class="stat-lbl">MSG/SEC</div></div>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map"></div>
+  <div class="sidebar">
+    <div class="sb-head">
+      <span>ALERTES CRITIQUES — ANALYSE MULTI-CRITÈRES</span>
+      <div style="display:flex;gap:6px">
+        <button id="hist-btn" onclick="openHistory()" style="font-size:10px;background:none;border:1px solid #152d4f;color:#58a6ff;padding:2px 8px;border-radius:4px;cursor:pointer">📜 Historique</button>
+        <button id="mute-btn" onclick="toggleMute()" class="muted">🔇 Muet</button>
+        <button id="clear-btn" onclick="clearCards()">Effacer</button>
+      </div>
+    </div>
+    <div id="search-wrap">
+      <input id="search-box" type="text" placeholder="🔍 Filtrer par nom / MMSI…" oninput="filterCards(this.value)">
+    </div>
+    <div class="cards" id="cards">
+      <div class="empty-state" id="empty">
+        <span>🚨</span>
+        En attente d'alertes critiques...
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vessel detail modal -->
+<div id="vessel-overlay" onclick="if(event.target===this)closeVessel()">
+  <div id="vessel-modal">
+    <div id="vessel-head">
+      <div>
+        <div id="vessel-title">—</div>
+        <div id="vessel-subtitle">—</div>
+      </div>
+      <button onclick="closeVessel()" style="font-size:18px;background:none;border:none;color:#6e7681;cursor:pointer">✕</button>
+    </div>
+    <div id="vessel-body"></div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div id="hist-overlay" onclick="if(event.target===this)closeHistory()">
+  <div id="hist-modal">
+    <div id="hist-head">
+      <h2>📜 Historique des alertes</h2>
+      <div id="hist-filters">
+        <button class="hf-btn active-all" onclick="loadHistory(_histLevel,0)"    id="hf-all">Tous niveaux</button>
+        <button class="hf-btn"            onclick="loadHistory('red',_histSince)"  id="hf-red">🚨 Rouges</button>
+        <button class="hf-btn"            onclick="loadHistory('orange',_histSince)" id="hf-orange">⚠ Suspects</button>
+        <button class="hf-btn"            onclick="loadHistory('dark',_histSince)"  id="hf-dark">🌑 Dark</button>
+      </div>
+      <div id="hist-time-filters" style="display:flex;gap:4px">
+        <button class="hf-btn active-time" onclick="loadHistory(_histLevel,3600)"   id="ht-1h">1h</button>
+        <button class="hf-btn"             onclick="loadHistory(_histLevel,21600)"  id="ht-6h">6h</button>
+        <button class="hf-btn"             onclick="loadHistory(_histLevel,86400)"  id="ht-24h">24h</button>
+        <button class="hf-btn"             onclick="loadHistory(_histLevel,0)"      id="ht-all">Tout</button>
+      </div>
+      <button onclick="exportCsv()" style="font-size:10px;background:none;border:1px solid #152d4f;color:#8b949e;padding:3px 10px;border-radius:4px;cursor:pointer">⬇ CSV</button>
+      <button id="hist-close" onclick="closeHistory()">✕</button>
+    </div>
+    <div id="hist-count">Chargement…</div>
+    <div id="hist-body"></div>
+  </div>
+</div>
+
+<script>
+const map = L.map('map', { center: [30, 10], zoom: 2 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', maxZoom: 18
+}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+  attribution: '', maxZoom: 18, pane: 'shadowPane'
+}).addTo(map);
+
+const markers = {};
+let total = 0, filtered = 0, maxAlerts = 0;
+
+function riskBar(score) {
+  const pct = Math.round(score / 10 * 100);
+  const color = score >= 6 ? '#f85149' : score >= 3 ? '#d29922' : '#e3b341';
+  return `<span class="risk-score">
+    <span style="color:${color}" class="risk-val">${score.toFixed(1)}/10</span>
+    <span class="risk-bar-wrap"><span class="risk-bar" style="width:${pct}%;background:${color}"></span></span>
+  </span>`;
+}
+
+function makeDarkIcon() {
+  return L.divIcon({
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#555;border:2px solid #aaa;box-shadow:0 0 8px #00000088;opacity:0.85"></div>`,
+    iconSize: [14,14], className: ''
+  });
+}
+
+function makeLoiterIcon() {
+  return L.divIcon({
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#e3b341;border:2px solid #fff;box-shadow:0 0 10px #e3b34188;"></div>`,
+    iconSize: [14,14], className: ''
+  });
+}
+
+function addDarkCard(d) {
+  document.getElementById('empty').style.display = 'none';
+  const card = document.createElement('div');
+  card.className = 'card flash';
+  card.style.cssText = 'border-left-color:#888;border-color:#88888444;';
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-name" style="color:#aaa;cursor:pointer" onclick="event.stopPropagation();openVessel(${d.mmsi},'🌑 ${d.name}')" title="Voir la fiche navire">🌑 ${d.flag || ''} ${d.name} <span style="font-size:9px;color:#58a6ff">🔍</span></div>
+      <div class="card-time" data-epoch="${d.ts_epoch}">${timeAgo(d.ts_epoch)}</div>
+    </div>
+    <div class="card-meta">MMSI ${d.mmsi} · ${d.country || ''} · ${d.type} · ${d.last_lat.toFixed(2)}°, ${d.last_lon.toFixed(2)}°</div>
+    <div style="display:flex;align-items:center;margin-bottom:8px">
+      <div class="severity-badge" style="background:#88888822;border-color:#888;color:#aaa;margin-bottom:0">
+        🌑 AIS COUPÉ DEPUIS ${d.minutes_silent} MIN
+      </div>
+      ${riskBar(d.risk_score || 4.0)}
+    </div>
+    <div class="alerts-list">
+      <div class="alert-item" style="background:#1a1a1a;border-color:#555">
+        <div class="alert-label" style="color:#aaa"><span class="alert-num" style="background:#666">!</span> ${d.alert_details[0].label}</div>
+        <div class="alert-detail">${d.alert_details[0].detail}</div>
+      </div>
+    </div>
+  `;
+  card.onclick = () => { map.setView([d.last_lat, d.last_lon], 7); if(markers[d.mmsi]) markers[d.mmsi].openPopup(); };
+  const container = document.getElementById('cards');
+  container.insertBefore(card, container.firstChild);
+  while (container.children.length > 61) container.removeChild(container.lastChild);
+}
+
+function addLoiteringCard(d) {
+  document.getElementById('empty').style.display = 'none';
+  const card = document.createElement('div');
+  card.className = 'card flash';
+  card.style.cssText = 'border-left-color:#e3b341;border-color:#e3b34144;';
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-name" style="cursor:pointer" onclick="event.stopPropagation();openVessel(${d.mmsi},'${(d.flag||'')} ${d.name}')" title="Voir la fiche navire">⚓ ${d.flag||''} ${d.name} <span style="font-size:9px;color:#58a6ff">🔍</span></div>
+      <div class="card-time" data-epoch="${d.ts_epoch}">${timeAgo(d.ts_epoch)}</div>
+    </div>
+    <div class="card-meta">MMSI ${d.mmsi} · ${d.country||''} · ${d.last_lat.toFixed(2)}°, ${d.last_lon.toFixed(2)}°</div>
+    <div style="display:flex;align-items:center;margin-bottom:8px;margin-top:6px">
+      <div class="severity-badge" style="background:#e3b34122;border-color:#e3b341;color:#e3b341;margin-bottom:0">
+        ⚓ ${d.duration_min} MIN · ${d.radius_km} km
+      </div>
+      ${riskBar(d.risk_score || 3.0)}
+    </div>
+    <div class="alerts-list">
+      <div class="alert-item" style="background:#1a1500;border-color:#e3b341">
+        <div class="alert-label" style="color:#e3b341"><span class="alert-num" style="background:#e3b341;color:#000">!</span> ${d.alert_details[0].label}</div>
+        <div class="alert-detail">${d.alert_details[0].detail}</div>
+      </div>
+    </div>
+  `;
+  card.onclick = () => { map.setView([d.last_lat, d.last_lon], 9); if(markers[d.mmsi]) markers[d.mmsi].openPopup(); };
+  const container = document.getElementById('cards');
+  container.insertBefore(card, container.firstChild);
+  while (container.children.length > 61) container.removeChild(container.lastChild);
+}
+
+function makeIcon(n) {
+  return L.divIcon({
+    html: `<div class="pulse-marker" style="
+      width:14px;height:14px;border-radius:50%;
+      background:#f85149;
+      border:2px solid rgba(255,255,255,.5);
+      box-shadow:0 0 10px #f8514999;
+      position:relative;
+    "></div>`,
+    iconSize: [14, 14], className: ''
+  });
+}
+
+function addCard(d) {
+  document.getElementById('empty').style.display = 'none';
+  const n = d.alert_details.length;
+
+  const alertsHtml = d.alert_details.map((al, i) => `
+    <div class="alert-item">
+      <div class="alert-label">
+        <span class="alert-num">${i+1}</span>
+        ${al.label}
+      </div>
+      <div class="alert-detail">${al.detail}</div>
+    </div>
+  `).join('');
+
+  const card = document.createElement('div');
+  card.className = 'card flash';
+  card.innerHTML = `
+    <div class="card-top">
+      <div class="card-name" onclick="event.stopPropagation();openVessel(${d.mmsi},'${(d.flag||'')} ${d.name}')" style="cursor:pointer" title="Voir la fiche navire">${d.flag || ''} ${d.name} <span style="font-size:9px;color:#58a6ff;vertical-align:middle">🔍</span></div>
+      <div class="card-time" data-epoch="${d.ts_epoch}">${timeAgo(d.ts_epoch)}</div>
+    </div>
+    <div class="card-meta">MMSI ${d.mmsi} · ${d.country || ''} · ${d.type} · ${d.speed} kt · ${d.lat.toFixed(2)}°, ${d.lon.toFixed(2)}°</div>
+    <div style="display:flex;align-items:center;margin-bottom:8px">
+      <div class="severity-badge" style="margin-bottom:0">🚨 ${n} CRITÈRE${n > 1 ? 'S' : ''} DÉCLENCHÉ${n > 1 ? 'S' : ''}</div>
+      ${riskBar(d.risk_score || 0)}
+    </div>
+    <div class="alerts-list">${alertsHtml}</div>
+    <div class="card-radio">📡 AIS Ch${d.channel} ${d.freq.toFixed(3)} MHz · RSSI ${d.rssi_dbm} dBm · SNR ${d.snr} dB · CFO ${d.cfo_hz > 0 ? '+' : ''}${d.cfo_hz} Hz · ${d.power} W</div>
+    <div class="card-match">↳ Empreinte live : ${d.fp_count > 1 ? `Revu ${d.fp_count}× depuis ${d.fp_first_seen} · dérive CFO ${d.fp_cfo_drift} Hz` : `1ère détection · CFO ${d.fp_cfo_ref > 0 ? '+' : ''}${d.fp_cfo_ref} Hz enregistré`}</div>
+  `;
+  card.onclick = () => { map.setView([d.lat, d.lon], 7); if(markers[d.mmsi]) markers[d.mmsi].openPopup(); };
+  const container = document.getElementById('cards');
+  container.insertBefore(card, container.firstChild);
+  while (container.children.length > 61) container.removeChild(container.lastChild);
+}
+
+function clearCards() { document.getElementById('cards').innerHTML = '<div class="empty-state" id="empty"><span>🚨</span>En attente d\'alertes critiques...</div>'; }
+
+// ── Zones à risque ────────────────────────────────────────────────────────
+const RISK_ZONES = [
+  {name:'Golfe de Guinée',           lat:[-5,7],   lon:[-5,15],   color:'#f85149'},
+  {name:'Golfe Persique / Iran',     lat:[23,30],  lon:[48,57],   color:'#f85149'},
+  {name:'Bab-el-Mandeb / Mer Rouge sud', lat:[11,16], lon:[41,48],color:'#f85149'},
+  {name:'Mer Rouge nord',            lat:[16,30],  lon:[32,44],   color:'#d29922'},
+  {name:'Détroit de Malacca',        lat:[1,6],    lon:[98,105],  color:'#d29922'},
+  {name:'Eaux nord-coréennes',       lat:[36,43],  lon:[124,132], color:'#f85149'},
+  {name:'Côtes somaliennes',         lat:[2,15],   lon:[41,52],   color:'#d29922'},
+];
+RISK_ZONES.forEach(z => {
+  L.rectangle([[z.lat[0], z.lon[0]], [z.lat[1], z.lon[1]]], {
+    color: z.color, weight: 1.5, opacity: 0.7,
+    fillColor: z.color, fillOpacity: 0.08,
+    dashArray: '4 4', interactive: true
+  }).bindTooltip(`⚠ ${z.name}`, {
+    permanent: false, direction: 'center',
+    className: 'zone-tooltip'
+  }).addTo(map);
+});
+
+let msgCount = 0;
+setInterval(() => {
+  document.getElementById('s-filtered').textContent = filtered;
+  msgCount = 0;
+}, 1000);
+
+setInterval(() => {
+  document.querySelectorAll('.card-time[data-epoch]').forEach(el => {
+    el.textContent = timeAgo(parseInt(el.dataset.epoch));
+  });
+}, 30000);
+
+const trails = {};
+function updateTrail(d) {
+  if (!d.trail || d.trail.length < 2) return;
+  if (trails[d.mmsi]) map.removeLayer(trails[d.mmsi]);
+  trails[d.mmsi] = L.polyline(d.trail, { color: '#f8514966', weight: 2, opacity: 0.9 }).addTo(map);
+}
+
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let muted = true;
+
+function toggleMute() {
+  muted = !muted;
+  const btn = document.getElementById('mute-btn');
+  btn.textContent = muted ? '🔇 Muet' : '🔔 Son';
+  btn.className   = muted ? 'muted' : '';
+}
+
+function beep(f=880, dur=0.2, vol=0.4) {
+  if (muted) return;
+  try {
+    if (!audioCtx) audioCtx = new AudioCtx();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    o.frequency.value = f;
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e) {}
+}
+
+function filterCards(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#cards .card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
+
+function connect() {
+  const ws = new WebSocket('ws://localhost:8765');
+  const statusEl = document.getElementById('status');
+  ws.onopen  = () => { statusEl.textContent = '● CONNECTÉ'; statusEl.className = 'ok'; };
+  ws.onclose = () => { statusEl.textContent = '● Reconnexion...'; statusEl.className = 'err'; setTimeout(connect, 3000); };
+
+  ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    filtered++; msgCount++;
+    document.getElementById('s-rate').textContent = msgCount;
+    document.getElementById('s-filtered').textContent = filtered;
+
+    // Badge non-lus
+    if (document.hidden && (d.event_type === 'dark_shipping' || d.event_type === 'loitering' || d.alert_level === 'red')) {
+      const badge = document.getElementById('nav-badge');
+      badge.style.display = 'inline-block';
+      badge.textContent = parseInt(badge.textContent || '0') + 1;
+    }
+
+    // ── Loitering ──
+    if (d.event_type === 'loitering') {
+      beep(440, 0.25, 0.3);
+      pushNotif('⚓ Loitering détecté',
+        `${d.flag||''} ${d.name} — ${d.duration_min} min / ${d.radius_km} km`);
+      total++;
+      document.getElementById('s-total').textContent = total;
+      const popup = `<b>⚓ ${d.flag||''} ${d.name}</b><br>MMSI: ${d.mmsi}<br><span style="color:#e3b341">Loitering ${d.duration_min} min / ${d.radius_km} km</span>`;
+      if (markers[d.mmsi]) {
+        markers[d.mmsi].setLatLng([d.last_lat, d.last_lon]).setPopupContent(popup);
+      } else {
+        markers[d.mmsi] = L.marker([d.last_lat, d.last_lon], { icon: makeLoiterIcon() })
+          .bindPopup(popup, { maxWidth: 280 }).addTo(map);
+      }
+      addLoiteringCard(d);
+      return;
+    }
+
+    // ── Dark shipping ──
+    if (d.event_type === 'dark_shipping') {
+      beep(330, 0.4, 0.35);
+      pushNotif('🌑 AIS coupé',
+        `${d.flag||''} ${d.name} (MMSI ${d.mmsi}) — ${d.minutes_silent} min sans signal`);
+      total++;
+      document.getElementById('s-total').textContent = total;
+      const popup = `<b>🌑 ${d.name}</b><br>MMSI: ${d.mmsi}<br><span style="color:#aaa">AIS coupé depuis ${d.minutes_silent} min</span>`;
+      if (markers[d.mmsi]) {
+        markers[d.mmsi].setPopupContent(popup);
+      } else {
+        markers[d.mmsi] = L.marker([d.last_lat, d.last_lon], { icon: makeDarkIcon() })
+          .bindPopup(popup, { maxWidth: 280 }).addTo(map);
+      }
+      addDarkCard(d);
+      return;
+    }
+
+    // STS géré dans dashboard_sts.html uniquement
+    if (d.event_type === 'sts') return;
+
+    if (d.alert_level !== 'red') return;
+
+    // Toujours mettre à jour la trajectoire même si doublon
+    updateTrail(d);
+    if (d.suppress_card) return;
+
+    beep(660, 0.25, 0.45);
+    if (d.alert_details.some(a => a.code === 'WATCHLIST_HIT'))
+      pushNotif('🎯 CIBLE WATCHLIST', `${d.flag||''} ${d.name} (MMSI ${d.mmsi}) détecté`);
+
+    total++;
+    const n = d.alert_details.length;
+    if (n > maxAlerts) { maxAlerts = n; document.getElementById('s-max-alerts').textContent = maxAlerts; }
+    document.getElementById('s-total').textContent = total;
+
+    const alertLines = d.alert_details.map((al,i) => `<br><span style="color:#f85149">⚠${i+1} ${al.label}</span>`).join('');
+    const popup = `<b>${d.name}</b><br>MMSI: ${d.mmsi}<br>Type: ${d.type} · ${d.speed} kt${alertLines}`;
+
+    if (markers[d.mmsi]) {
+      markers[d.mmsi].setLatLng([d.lat, d.lon]).setPopupContent(popup);
+    } else {
+      markers[d.mmsi] = L.marker([d.lat, d.lon], { icon: makeIcon(n) })
+        .bindPopup(popup, { maxWidth: 300 }).addTo(map);
+      if (n >= 3) map.setView([d.lat, d.lon], 5);
+    }
+    addCard(d);
+  };
+}
+connect();
+
+// ── Notifications push OS ─────────────────────────────────────────────────
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+function pushNotif(title, body, icon) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body, icon: icon || '/favicon.ico', silent: false }); }
+  catch(e) {}
+}
+
+// ── Timestamps relatifs ────────────────────────────────────────────────────
+function timeAgo(epoch) {
+  if (!epoch) return '';
+  const diff = Math.floor(Date.now() / 1000 - epoch);
+  if (diff < 60)   return `il y a ${diff}s`;
+  if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
+  return `il y a ${Math.floor(diff / 3600)}h`;
+}
+
+// ── Fullscreen carte ───────────────────────────────────────────────────────
+function toggleFullscreen() {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.getElementById('fs-btn');
+  if (sidebar.style.display === 'none') {
+    sidebar.style.display = '';
+    btn.textContent = '⛶';
+    btn.title = 'Plein écran carte';
+  } else {
+    sidebar.style.display = 'none';
+    btn.textContent = '◧';
+    btn.title = 'Afficher la sidebar';
+  }
+  map.invalidateSize();
+}
+
+// ── Fiche navire ───────────────────────────────────────────────────────────
+function openVessel(mmsi, title) {
+  document.getElementById('vessel-title').textContent = title;
+  document.getElementById('vessel-subtitle').textContent = `MMSI ${mmsi} — chargement…`;
+  document.getElementById('vessel-body').innerHTML = '';
+  document.getElementById('vessel-overlay').classList.add('open');
+
+  fetch(`/api/vessel/${mmsi}`)
+    .then(r => r.json())
+    .then(rows => {
+      const sub = `MMSI ${mmsi} — ${rows.length} détection${rows.length !== 1 ? 's' : ''} enregistrée${rows.length !== 1 ? 's' : ''}`;
+      document.getElementById('vessel-subtitle').textContent = sub;
+      if (rows.length === 0) {
+        document.getElementById('vessel-body').innerHTML =
+          '<div style="color:#6e7681;text-align:center;padding:24px">Aucune détection en base</div>';
+        return;
+      }
+      const body = document.getElementById('vessel-body');
+      for (const r of rows) {
+        const lvlClass = r.alert_level === 'orange' ? 'lvl-orange' : r.alert_level === 'dark' ? 'lvl-dark' : '';
+        const alertColor = r.alert_level === 'orange' ? 'orange' : '';
+        const icon = r.alert_level === 'orange' ? '⚠' : r.alert_level === 'dark' ? '🌑' : '🚨';
+        const details = r.alert_details_json || [];
+        const alertsHtml = details.length
+          ? details.map(a => `<div class="vessel-event-alert ${alertColor}">${icon} ${a.label}</div>`).join('')
+          : r.alerts_json.map(a => `<div class="vessel-event-alert ${alertColor}">${icon} ${a}</div>`).join('');
+        const pos = (r.lat && r.lon) ? `${parseFloat(r.lat).toFixed(2)}°, ${parseFloat(r.lon).toFixed(2)}°` : '—';
+        const div = document.createElement('div');
+        div.className = `vessel-event ${lvlClass}`;
+        div.innerHTML = `
+          <div class="vessel-event-top">
+            <span>${r.ts}</span>
+            <span>${pos}</span>
+          </div>
+          <div class="vessel-event-alerts">${alertsHtml}</div>`;
+        body.appendChild(div);
+      }
+    })
+    .catch(() => {
+      document.getElementById('vessel-subtitle').textContent = 'Erreur de chargement';
+    });
+}
+function closeVessel() {
+  document.getElementById('vessel-overlay').classList.remove('open');
+}
+
+// ── History modal ──────────────────────────────────────────────────────────
+let _histLevel = '';
+let _histSince = 3600;
+let _histData  = [];
+
+function openHistory() {
+  document.getElementById('hist-overlay').classList.add('open');
+  loadHistory('', 3600);
+}
+function closeHistory() {
+  document.getElementById('hist-overlay').classList.remove('open');
+}
+
+async function loadHistory(level, since) {
+  if (since === undefined) since = _histSince;
+  _histLevel = level;
+  _histSince = since;
+
+  ['all','red','orange','dark'].forEach(k => {
+    const btn = document.getElementById('hf-' + k);
+    btn.className = 'hf-btn';
+    if ((k === 'all' && level === '') || k === level) btn.className += ' active-' + (k === 'all' ? 'all' : level);
+  });
+  [['1h',3600],['6h',21600],['24h',86400],['all',0]].forEach(([k,s]) => {
+    const btn = document.getElementById('ht-' + k);
+    btn.className = 'hf-btn' + (since === s ? ' active-time' : '');
+  });
+
+  document.getElementById('hist-count').textContent = 'Chargement…';
+  document.getElementById('hist-body').innerHTML = '';
+
+  try {
+    let url = `/api/history?limit=200${level ? '&level=' + level : ''}${since ? '&since=' + since : ''}`;
+    const rows = await fetch(url).then(r => r.json());
+    _histData = rows;
+
+    document.getElementById('hist-count').textContent =
+      `${rows.length} événement${rows.length !== 1 ? 's' : ''} — du plus récent au plus ancien`;
+
+    if (rows.length === 0) {
+      document.getElementById('hist-body').innerHTML =
+        '<div style="color:#6e7681;text-align:center;padding:32px">Aucun événement enregistré</div>';
+      return;
+    }
+
+    const body = document.getElementById('hist-body');
+    for (const r of rows) {
+      const lvlClass = r.alert_level === 'dark' ? 'lvl-dark' : r.alert_level === 'orange' ? 'lvl-orange' : '';
+      const alertColor = r.alert_level === 'dark' ? 'dark' : r.alert_level === 'orange' ? 'orange' : 'red';
+      const levelIcon  = r.alert_level === 'dark' ? '🌑' : r.alert_level === 'orange' ? '⚠' : '🚨';
+      const details = r.alert_details_json || [];
+      const alertsHtml = details.length
+        ? details.map(a => `<div class="hcard-alert ${alertColor}">${levelIcon} ${a.label}</div>`).join('')
+        : r.alerts_json.map(a => `<div class="hcard-alert ${alertColor}">${levelIcon} ${a}</div>`).join('');
+      const latLon = (r.lat && r.lon)
+        ? `${parseFloat(r.lat).toFixed(2)}°, ${parseFloat(r.lon).toFixed(2)}°`
+        : '';
+      const div = document.createElement('div');
+      div.className = `hcard ${lvlClass}`;
+      div.innerHTML = `
+        <div class="hcard-top">
+          <span class="hcard-name">${r.name || 'MMSI ' + r.mmsi}</span>
+          <span class="hcard-ts">${r.ts}</span>
+        </div>
+        <div class="hcard-meta">MMSI ${r.mmsi}${latLon ? ' · ' + latLon : ''}</div>
+        <div class="hcard-alerts">${alertsHtml}</div>
+      `;
+      body.appendChild(div);
+    }
+  } catch(e) {
+    document.getElementById('hist-count').textContent = 'Erreur de chargement';
+  }
+}
+
+function exportCsv() {
+  if (!_histData.length) return;
+  const headers = ['id','mmsi','name','alert_level','alert_codes','lat','lon','ts'];
+  const lines = [
+    headers.join(','),
+    ..._histData.map(r => headers.map(h => {
+      const v = Array.isArray(r[h]) ? r[h].join('|') : (r[h] ?? '');
+      return `"${String(v).replace(/"/g,'""')}"`;
+    }).join(','))
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ais_alertes_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

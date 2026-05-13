@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paramètres — Marine Nationale AIS</title>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #030c1c;
+  --surface:  #060f24;
+  --card:     #091428;
+  --border:   #152d4f;
+  --gold:     #c9a227;
+  --gold2:    #e8c547;
+  --text:     #e8f4f8;
+  --muted:    #7a9bb5;
+  --accent:   #1e7fcb;
+  --green:    #27c93f;
+  --orange:   #f0a500;
+  --red:      #e53935;
+  --radius:   8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh}
+
+/* ── Header ── */
+header{
+  background:var(--surface);
+  border-bottom:3px solid transparent;
+  border-image:linear-gradient(to right,#002395 33.3%,#ffffff 33.3% 66.6%,#ed2939 66.6%) 1 0 0 0;
+  padding:0 24px;
+  display:flex;align-items:center;gap:20px;height:56px;
+  position:sticky;top:0;z-index:100;
+}
+.logo{font-size:1.05rem;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.logo span{color:var(--text);font-weight:300}
+nav{display:flex;gap:4px;margin-left:auto}
+nav a{
+  color:var(--muted);text-decoration:none;font-size:.78rem;font-weight:600;
+  letter-spacing:.5px;text-transform:uppercase;padding:6px 12px;border-radius:4px;
+  transition:all .2s;
+}
+nav a:hover{background:rgba(201,162,39,.12);color:var(--gold)}
+nav a.active{background:rgba(201,162,39,.18);color:var(--gold);border-bottom:2px solid var(--gold)}
+
+/* ── Layout ── */
+.page{max-width:900px;margin:32px auto;padding:0 24px 80px}
+h1{font-size:1.4rem;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;
+   margin-bottom:6px;display:flex;align-items:center;gap:10px}
+h1 svg{opacity:.7}
+.subtitle{color:var(--muted);font-size:.85rem;margin-bottom:32px}
+
+/* ── Section ── */
+.section{margin-bottom:28px}
+.section-title{
+  font-size:.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:12px;padding-bottom:6px;
+  border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;
+}
+.section-title .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block}
+
+/* ── Grid de paramètres ── */
+.params-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.params-grid{grid-template-columns:1fr}}
+
+.param-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px;transition:border-color .2s;
+}
+.param-card:hover{border-color:var(--accent)}
+.param-card.changed{border-color:var(--gold);background:#0c1a2e}
+
+.param-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.param-name{font-size:.8rem;font-weight:600;color:var(--text);letter-spacing:.3px}
+.param-unit{font-size:.7rem;color:var(--muted);background:rgba(255,255,255,.06);
+            padding:2px 6px;border-radius:3px;font-weight:600}
+.param-desc{font-size:.72rem;color:var(--muted);margin-bottom:12px;line-height:1.4}
+
+/* ── Slider ── */
+.slider-row{display:flex;align-items:center;gap:10px}
+input[type=range]{
+  flex:1;-webkit-appearance:none;height:4px;border-radius:2px;
+  background:linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct, 50%), var(--border) var(--pct, 50%));
+  outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--gold);cursor:pointer;border:2px solid var(--bg);
+  box-shadow:0 0 6px rgba(201,162,39,.5);
+}
+.param-val{
+  width:62px;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  border-radius:4px;color:var(--text);font-family:'Exo 2',sans-serif;
+  font-size:.85rem;font-weight:600;text-align:center;padding:4px 6px;
+  outline:none;transition:border-color .2s;
+}
+.param-val:focus{border-color:var(--accent)}
+
+/* ── Poids de risque (badge coloré) ── */
+.weight-badge{
+  font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:10px;
+  min-width:38px;text-align:center;
+}
+
+/* ── Boutons ── */
+.actions{
+  position:fixed;bottom:0;left:0;right:0;background:var(--surface);
+  border-top:1px solid var(--border);padding:14px 24px;
+  display:flex;align-items:center;gap:12px;
+}
+.btn{
+  padding:9px 22px;border-radius:var(--radius);font-family:'Exo 2',sans-serif;
+  font-size:.82rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  cursor:pointer;border:none;transition:all .2s;
+}
+.btn-primary{background:var(--gold);color:#030c1c}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--text)}
+.save-status{font-size:.78rem;color:var(--muted);margin-left:auto}
+.save-status.ok{color:var(--green)}
+.save-status.err{color:var(--red)}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;top:70px;right:24px;background:#1a2f4a;border:1px solid var(--gold);
+  border-radius:8px;padding:12px 18px;font-size:.82rem;color:var(--gold);
+  font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.5);
+  transform:translateY(-10px);opacity:0;transition:all .3s;pointer-events:none;z-index:999;
+}
+.toast.show{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MARINE <span>NATIONALE</span> · AIS <span>SURVEILLANCE</span></div>
+  <nav>
+    <a href="dashboard.html">🗺 Carte</a>
+    <a href="dashboard_alertes.html">🚨 Alertes</a>
+    <a href="dashboard_suspects.html">⚠ Suspects</a>
+    <a href="dashboard_sts.html">📦 STS</a>
+    <a href="stats.html">📊 Stats</a>
+    <a href="dashboard_settings.html" class="active">⚙ Paramètres</a>
+  </nav>
+</header>
+
+<div class="page">
+  <h1>
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+    </svg>
+    Paramètres de détection
+  </h1>
+  <p class="subtitle">Ajustez les seuils en temps réel — les modifications s'appliquent immédiatement sans redémarrage.</p>
+
+  <!-- LOITERING -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Loitering — errance suspecte</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-loiter_radius_km">
+        <div class="param-header">
+          <span class="param-name">Rayon de zone</span>
+          <span class="param-unit">km</span>
+        </div>
+        <p class="param-desc">Diamètre maximal dans lequel le navire doit rester pour déclencher une alerte loitering.</p>
+        <div class="slider-row">
+          <input type="range" id="loiter_radius_km" min="1" max="20" step="0.5" value="5">
+          <input type="number" class="param-val" id="loiter_radius_km_val" min="1" max="20" step="0.5" value="5">
+        </div>
+      </div>
+      <div class="param-card" id="card-loiter_min_h">
+        <div class="param-header">
+          <span class="param-name">Durée minimale</span>
+          <span class="param-unit">heures</span>
+        </div>
+        <p class="param-desc">Temps minimum passé dans la zone avant de considérer le comportement suspect.</p>
+        <div class="slider-row">
+          <input type="range" id="loiter_min_h" min="0.5" max="12" step="0.5" value="2">
+          <input type="number" class="param-val" id="loiter_min_h_val" min="0.5" max="12" step="0.5" value="2">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STS -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> STS — Ship-to-Ship Transfer</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-sts_dist_km">
+        <div class="param-header">
+          <span class="param-name">Distance max entre navires</span>
+          <span class="param-unit">km</span>
+        </div>
+        <p class="param-desc">Distance maximale (en km) séparant deux navires pour être considérés en transfert STS. 0.5 km = 500 m.</p>
+        <div class="slider-row">
+          <input type="range" id="sts_dist_km" min="0.1" max="2" step="0.1" value="0.5">
+          <input type="number" class="param-val" id="sts_dist_km_val" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+      </div>
+      <div class="param-card" id="card-sts_min_checks">
+        <div class="param-header">
+          <span class="param-name">Durée de confirmation</span>
+          <span class="param-unit">cycles ×60s</span>
+        </div>
+        <p class="param-desc">Nombre de cycles consécutifs (× 60s) où les deux navires doivent être proches avant alerte.</p>
+        <div class="slider-row">
+          <input type="range" id="sts_min_checks" min="1" max="10" step="1" value="3">
+          <input type="number" class="param-val" id="sts_min_checks_val" min="1" max="10" step="1" value="3">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DARK SHIPPING -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Dark Shipping — silence AIS</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-dark_min">
+        <div class="param-header">
+          <span class="param-name">Délai d'alerte dark</span>
+          <span class="param-unit">minutes</span>
+        </div>
+        <p class="param-desc">Durée de silence AIS sans signal avant de considérer le navire comme "dark" et d'émettre une alerte.</p>
+        <div class="slider-row">
+          <input type="range" id="dark_min" min="5" max="60" step="5" value="15">
+          <input type="number" class="param-val" id="dark_min_val" min="5" max="60" step="5" value="15">
+        </div>
+      </div>
+      <div class="param-card" id="card-dark_expire_min">
+        <div class="param-header">
+          <span class="param-name">Expiration du suivi dark</span>
+          <span class="param-unit">minutes</span>
+        </div>
+        <p class="param-desc">Au-delà de ce délai de silence, le navire est retiré du suivi (probablement au port ou hors zone).</p>
+        <div class="slider-row">
+          <input type="range" id="dark_expire_min" min="30" max="480" step="30" value="120">
+          <input type="number" class="param-val" id="dark_expire_min_val" min="30" max="480" step="30" value="120">
+        </div>
+      </div>
+      <div class="param-card" id="card-dark_reapp_min_h">
+        <div class="param-header">
+          <span class="param-name">Dark min pour réapparition</span>
+          <span class="param-unit">heures</span>
+        </div>
+        <p class="param-desc">Durée de dark minimale pour activer la vérification de saut de position à la réapparition.</p>
+        <div class="slider-row">
+          <input type="range" id="dark_reapp_min_h" min="0.5" max="6" step="0.5" value="1">
+          <input type="number" class="param-val" id="dark_reapp_min_h_val" min="0.5" max="6" step="0.5" value="1">
+        </div>
+      </div>
+      <div class="param-card" id="card-dark_reapp_jump_km">
+        <div class="param-header">
+          <span class="param-name">Saut de réapparition</span>
+          <span class="param-unit">km</span>
+        </div>
+        <p class="param-desc">Saut minimum (km) entre position extrapolée et position réelle pour déclencher une alerte DARK_REAPPEARANCE.</p>
+        <div class="slider-row">
+          <input type="range" id="dark_reapp_jump_km" min="10" max="300" step="10" value="50">
+          <input type="number" class="param-val" id="dark_reapp_jump_km_val" min="10" max="300" step="10" value="50">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VITESSE -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Vitesse anormale</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-impossible_speed">
+        <div class="param-header">
+          <span class="param-name">Vitesse physiquement impossible</span>
+          <span class="param-unit">nœuds</span>
+        </div>
+        <p class="param-desc">Au-dessus de ce seuil, la vitesse est physiquement impossible pour tout navire commercial — spoofing probable.</p>
+        <div class="slider-row">
+          <input type="range" id="impossible_speed" min="30" max="100" step="5" value="50">
+          <input type="number" class="param-val" id="impossible_speed_val" min="30" max="100" step="5" value="50">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DÉDUPLICATION -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Anti-doublon (déduplication)</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-dedup_orange_s">
+        <div class="param-header">
+          <span class="param-name">Intervalle alerte orange</span>
+          <span class="param-unit">secondes</span>
+        </div>
+        <p class="param-desc">Délai minimum entre deux notifications orange identiques pour le même navire.</p>
+        <div class="slider-row">
+          <input type="range" id="dedup_orange_s" min="60" max="1800" step="60" value="300">
+          <input type="number" class="param-val" id="dedup_orange_s_val" min="60" max="1800" step="60" value="300">
+        </div>
+      </div>
+      <div class="param-card" id="card-dedup_red_s">
+        <div class="param-header">
+          <span class="param-name">Intervalle alerte rouge</span>
+          <span class="param-unit">secondes</span>
+        </div>
+        <p class="param-desc">Délai minimum entre deux notifications rouges identiques pour le même navire.</p>
+        <div class="slider-row">
+          <input type="range" id="dedup_red_s" min="30" max="900" step="30" value="180">
+          <input type="number" class="param-val" id="dedup_red_s_val" min="30" max="900" step="30" value="180">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- POIDS DE RISQUE -->
+  <div class="section">
+    <div class="section-title"><span class="dot"></span> Poids de risque — score /10</div>
+    <div class="params-grid">
+      <div class="param-card" id="card-w_watchlist_hit">
+        <div class="param-header">
+          <span class="param-name">WATCHLIST HIT</span>
+          <span class="param-unit" style="color:#e53935">critique</span>
+        </div>
+        <p class="param-desc">Navire identifié dans la base de sanctions (OFAC, ONU, UK OFSI…).</p>
+        <div class="slider-row">
+          <input type="range" id="w_watchlist_hit" min="0.5" max="10" step="0.5" value="5">
+          <input type="number" class="param-val" id="w_watchlist_hit_val" min="0.5" max="10" step="0.5" value="5">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_dark_reappearance">
+        <div class="param-header">
+          <span class="param-name">DARK REAPPEARANCE</span>
+          <span class="param-unit" style="color:#e53935">élevé</span>
+        </div>
+        <p class="param-desc">Réapparition avec saut de position inexpliqué après silence AIS.</p>
+        <div class="slider-row">
+          <input type="range" id="w_dark_reappearance" min="0.5" max="10" step="0.5" value="4">
+          <input type="number" class="param-val" id="w_dark_reappearance_val" min="0.5" max="10" step="0.5" value="4">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_dark_shipping">
+        <div class="param-header">
+          <span class="param-name">DARK SHIPPING</span>
+          <span class="param-unit" style="color:#e53935">élevé</span>
+        </div>
+        <p class="param-desc">Coupure volontaire du signal AIS en route.</p>
+        <div class="slider-row">
+          <input type="range" id="w_dark_shipping" min="0.5" max="10" step="0.5" value="4">
+          <input type="number" class="param-val" id="w_dark_shipping_val" min="0.5" max="10" step="0.5" value="4">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_sts_detected">
+        <div class="param-header">
+          <span class="param-name">STS DETECTED</span>
+          <span class="param-unit" style="color:#e53935">élevé</span>
+        </div>
+        <p class="param-desc">Transfert ship-to-ship confirmé en mer.</p>
+        <div class="slider-row">
+          <input type="range" id="w_sts_detected" min="0.5" max="10" step="0.5" value="4.5">
+          <input type="number" class="param-val" id="w_sts_detected_val" min="0.5" max="10" step="0.5" value="4.5">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_loitering">
+        <div class="param-header">
+          <span class="param-name">LOITERING</span>
+          <span class="param-unit" style="color:#f0a500">moyen</span>
+        </div>
+        <p class="param-desc">Navire en attente stationnaire prolongée sans raison déclarée.</p>
+        <div class="slider-row">
+          <input type="range" id="w_loitering" min="0.5" max="10" step="0.5" value="3">
+          <input type="number" class="param-val" id="w_loitering_val" min="0.5" max="10" step="0.5" value="3">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_flag_mismatch">
+        <div class="param-header">
+          <span class="param-name">FLAG MISMATCH</span>
+          <span class="param-unit" style="color:#f0a500">moyen</span>
+        </div>
+        <p class="param-desc">Pavillon déclaré différent du pays d'immatriculation MMSI pour un État sous sanctions.</p>
+        <div class="slider-row">
+          <input type="range" id="w_flag_mismatch" min="0.5" max="10" step="0.5" value="3.5">
+          <input type="number" class="param-val" id="w_flag_mismatch_val" min="0.5" max="10" step="0.5" value="3.5">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_speed_impossible">
+        <div class="param-header">
+          <span class="param-name">SPEED IMPOSSIBLE</span>
+          <span class="param-unit" style="color:#f0a500">moyen</span>
+        </div>
+        <p class="param-desc">Vitesse physiquement irréaliste — probable spoofing GPS.</p>
+        <div class="slider-row">
+          <input type="range" id="w_speed_impossible" min="0.5" max="10" step="0.5" value="3">
+          <input type="number" class="param-val" id="w_speed_impossible_val" min="0.5" max="10" step="0.5" value="3">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_position_jump">
+        <div class="param-header">
+          <span class="param-name">POSITION JUMP</span>
+          <span class="param-unit" style="color:#1e7fcb">faible</span>
+        </div>
+        <p class="param-desc">Saut de position incohérent avec la vitesse déclarée.</p>
+        <div class="slider-row">
+          <input type="range" id="w_position_jump" min="0.5" max="10" step="0.5" value="2.5">
+          <input type="number" class="param-val" id="w_position_jump_val" min="0.5" max="10" step="0.5" value="2.5">
+        </div>
+      </div>
+      <div class="param-card" id="card-w_speed_anomaly">
+        <div class="param-header">
+          <span class="param-name">SPEED ANOMALY</span>
+          <span class="param-unit" style="color:#1e7fcb">faible</span>
+        </div>
+        <p class="param-desc">Vitesse anormale pour le type de navire mais physiquement possible.</p>
+        <div class="slider-row">
+          <input type="range" id="w_speed_anomaly" min="0.5" max="10" step="0.5" value="1.5">
+          <input type="number" class="param-val" id="w_speed_anomaly_val" min="0.5" max="10" step="0.5" value="1.5">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Barre d'actions fixe -->
+<div class="actions">
+  <button class="btn btn-ghost" id="btn-reset">↺ Réinitialiser</button>
+  <button class="btn btn-primary" id="btn-save" disabled>Appliquer les changements</button>
+  <span class="save-status" id="save-status"></span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">✓ Paramètres appliqués</div>
+
+<script>
+const API = 'http://localhost:8080/api/config';
+const DEFAULTS = {};
+const dirty = new Set();
+
+/* ── Initialisation : lecture de l'état serveur ── */
+async function loadConfig() {
+  try {
+    const r = await fetch(API);
+    const cfg = await r.json();
+    applyConfig(cfg);
+    Object.assign(DEFAULTS, cfg);
+  } catch(e) {
+    document.getElementById('save-status').textContent = 'Serveur inaccessible';
+    document.getElementById('save-status').className = 'save-status err';
+  }
+}
+
+function applyConfig(cfg) {
+  for (const [key, val] of Object.entries(cfg)) {
+    const sl = document.getElementById(key);
+    const inp = document.getElementById(key + '_val');
+    if (!sl || !inp) continue;
+    sl.value = val;
+    inp.value = val;
+    updateSliderFill(sl);
+  }
+}
+
+/* ── Synchronisation slider ↔ input ── */
+function updateSliderFill(sl) {
+  const pct = ((sl.value - sl.min) / (sl.max - sl.min)) * 100;
+  sl.style.setProperty('--pct', pct + '%');
+}
+
+function wire(key) {
+  const sl = document.getElementById(key);
+  const inp = document.getElementById(key + '_val');
+  if (!sl || !inp) return;
+
+  sl.addEventListener('input', () => {
+    inp.value = sl.value;
+    updateSliderFill(sl);
+    markDirty(key);
+  });
+  inp.addEventListener('input', () => {
+    sl.value = inp.value;
+    updateSliderFill(sl);
+    markDirty(key);
+  });
+  updateSliderFill(sl);
+}
+
+function markDirty(key) {
+  dirty.add(key);
+  document.getElementById('card-' + key)?.classList.add('changed');
+  document.getElementById('btn-save').disabled = false;
+  document.getElementById('save-status').textContent = dirty.size + ' paramètre(s) modifié(s)';
+  document.getElementById('save-status').className = 'save-status';
+}
+
+/* ── Sauvegarder ── */
+document.getElementById('btn-save').addEventListener('click', async () => {
+  const patch = {};
+  for (const key of dirty) {
+    const inp = document.getElementById(key + '_val');
+    if (inp) patch[key] = parseFloat(inp.value);
+  }
+  try {
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      dirty.clear();
+      document.querySelectorAll('.param-card').forEach(c => c.classList.remove('changed'));
+      document.getElementById('btn-save').disabled = true;
+      document.getElementById('save-status').textContent = '';
+      showToast('✓ Paramètres appliqués en temps réel');
+    }
+  } catch(e) {
+    document.getElementById('save-status').textContent = 'Erreur de connexion';
+    document.getElementById('save-status').className = 'save-status err';
+  }
+});
+
+/* ── Réinitialiser ── */
+document.getElementById('btn-reset').addEventListener('click', () => {
+  applyConfig(DEFAULTS);
+  dirty.clear();
+  document.querySelectorAll('.param-card').forEach(c => c.classList.remove('changed'));
+  document.getElementById('btn-save').disabled = false;
+  document.getElementById('save-status').textContent = 'Valeurs réinitialisées — cliquez Appliquer';
+  document.getElementById('save-status').className = 'save-status';
+});
+
+/* ── Toast ── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ── Câblage de tous les sliders ── */
+const ALL_KEYS = [
+  'loiter_radius_km','loiter_min_h',
+  'sts_dist_km','sts_min_checks',
+  'dark_min','dark_expire_min','dark_reapp_min_h','dark_reapp_jump_km',
+  'impossible_speed',
+  'dedup_orange_s','dedup_red_s',
+  'w_watchlist_hit','w_sts_detected','w_dark_reappearance','w_dark_shipping',
+  'w_loitering','w_flag_mismatch','w_speed_impossible','w_position_jump','w_speed_anomaly',
+];
+ALL_KEYS.forEach(wire);
+loadConfig();
+</script>
+</body>
+</html>
