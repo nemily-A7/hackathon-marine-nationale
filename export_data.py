@@ -13,8 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from detection_engine import load_data, run_detection, DEFAULT_CONFIG
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR   = os.path.join(BASE_DIR, "Généralisation")
-ZONES_PATH = os.path.join(BASE_DIR, "notebook", "zones_risques_2.csv")
+DATA_DIR   = os.path.join(BASE_DIR, "data")
+ZONES_PATH = os.path.join(BASE_DIR, "data", "zones_risques_2.csv")
 OUT_DIR    = os.path.join(BASE_DIR, "dashboard", "public", "data")
 
 os.makedirs(OUT_DIR, exist_ok=True)

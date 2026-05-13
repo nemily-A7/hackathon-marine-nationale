@@ -1,0 +1,36 @@
+,nom,niveau,type,coords,niveau_num
+0,Golfe de Guinée,EXTREME,Piraterie/Kidnapping,"[(4,-5),(8,-2),(6,5),(2,4),(-1,1),(1,-4)]",4
+1,Mer Rouge / Houthis,EXTREME,Conflits/Missiles,"[(12,43),(15,41),(20,38),(25,37),(28,34),(26,43),(20,45)]",4
+2,Détroit d'Ormuz,EXTREME,Tensions Iran/Saisies,"[(24,56),(25,55),(27,56),(27,59),(25,60),(24,58)]",4
+3,Détroit de Bab-el-Mandeb,EXTREME,Conflits/Trafics,"[(11,42),(13,42),(13,45),(11,45),(10,44)]",4
+4,Corne de l'Afrique,ELEVE,Piraterie somalienne,"[(10,45),(12,42),(15,42),(15,52),(12,55),(8,50)]",3
+5,Détroit de Malacca,ELEVE,Vols/Piraterie,"[(1,100),(4,100),(6,102),(5,105),(3,104),(1,103)]",3
+6,Détroit de Singapour,ELEVE,Vols opportunistes,"[(1,103),(1,104),(2,104),(2,103)]",3
+7,Mer de Chine Méridionale,ELEVE,Tensions territoriales,"[(10,110),(15,108),(20,115),(18,120),(12,118),(8,114)]",3
+8,Golfe d'Aden,ELEVE,Piraterie/Trafics,"[(11,43),(12,45),(13,50),(12,53),(10,52),(10,45)]",3
+9,Mer Noire,ELEVE,Conflit Russie-Ukraine/Mines,"[(42,28),(44,30),(46,37),(44,41),(42,40),(41,32)]",3
+10,Mer de Sulu,ELEVE,Enlèvements/Terrorisme,"[(4,118),(8,118),(8,122),(5,122),(4,120)]",3
+11,Côtes Nigérianes,ELEVE,Piraterie pétrolière,"[(3,2),(6,2),(6,8),(3,8),(2,5)]",3
+12,Caraïbes,MODERE,Trafic drogue,"[(10,-75),(15,-72),(18,-65),(15,-60),(10,-63),(8,-68)]",2
+13,Golfe du Bengale,MODERE,Piraterie/Migrants,"[(10,80),(15,78),(20,85),(18,92),(12,90),(8,85)]",2
+14,Méditerranée Centrale,MODERE,Trafic migrants Libye,"[(32,10),(34,12),(36,15),(34,18),(32,16),(30,13)]",2
+15,Mer d'Arabie,MODERE,Trafic armes/Drones Iran,"[(15,55),(18,58),(20,65),(17,68),(14,65),(13,58)]",2
+16,Indonésie / Sulawesi,MODERE,Vols sur barges,"[(-2,108),(2,108),(4,112),(2,116),(-2,114),(-4,110)]",2
+17,Détroit de Taïwan,MODERE,Tensions Chine-Taïwan,"[(22,120),(24,120),(26,121),(25,122),(23,122),(21,121)]",2
+18,Eaux Péruviennes,MODERE,Piraterie/Port Callao,"[(-3,-82),(-3,-77),(0,-77),(0,-82)]",2
+19,Canal du Mozambique,MODERE,Piraterie somalienne étendue,"[(-10,38),(-5,38),(-5,45),(-10,45),(-15,43)]",2
+20,Côte Ouest Afrique,SURVEILLE,Pêche illégale,"[(0,-17),(5,-15),(8,-13),(6,-10),(2,-12),(-2,-15)]",1
+21,Cap de Bonne-Espérance,SURVEILLE,Conditions météo extrêmes,"[(-35,15),(-32,15),(-32,22),(-35,22),(-37,18)]",1
+22,ZEE Guyane Française,SURVEILLE,Pêche illégale/Orpaillage,"[(3,-55),(9,-55),(9,-50),(3,-50)]",1
+23,ZEE Martinique,SURVEILLE,Trafic drogue Caraïbes,"[(13,-62),(16,-62),(16,-59),(13,-59)]",1
+24,ZEE Guadeloupe,SURVEILLE,Trafic drogue Caraïbes,"[(15,-63),(18,-63),(18,-60),(15,-60)]",1
+25,ZEE La Réunion,SURVEILLE,Surveillance Océan Indien,"[(-23,52),(-19,52),(-19,57),(-23,57)]",1
+26,ZEE Mayotte,SURVEILLE,Trafic migrants/Pêche illégale,"[(-14,43),(-11,43),(-11,46),(-14,46)]",1
+27,ZEE Nouvelle-Calédonie,SURVEILLE,Pêche illégale Pacifique,"[(-25,158),(-18,158),(-18,170),(-25,170)]",1
+28,ZEE Polynésie Française,SURVEILLE,Surveillance Pacifique Sud,"[(-28,-155),(-7,-155),(-7,-130),(-28,-130)]",1
+29,ZEE Saint-Pierre-et-Miquelon,SURVEILLE,Pêche illégale Atlantique Nord,"[(45,-57),(48,-57),(48,-54),(45,-54)]",1
+30,ZEE Wallis-et-Futuna,SURVEILLE,Surveillance Pacifique,"[(-15,176),(-12,176),(-12,180),(-15,180)]",1
+31,ZEE Kerguelen,SURVEILLE,Pêche illégale Austral,"[(-52,65),(-47,65),(-47,75),(-52,75)]",1
+32,ZEE Atlantique / Golfe de Gascogne,SURVEILLE,Surveillance Atlantique,"[(43,-8),(48,-8),(48,-2),(44,-2),(43,-4)]",1
+33,ZEE Manche,SURVEILLE,Trafic maritime dense / Migrants,"[(48,-3),(51,-3),(51,2),(49,2),(48,0)]",1
+34,ZEE Méditerranée,SURVEILLE,Trafic migrants / Surveillance,"[(41,4),(43,4),(44,7),(43,9),(41,8),(41,5)]",1
